@@ -7,8 +7,9 @@ is an object in a local database.
 
 | Part | Role |
 |------|------|
-| `data/elements.js` | The database: an array of 118 element objects (`window.PERIODIC_DB`), one per known element, with physical, chemical and historical data. |
-| `js/app.js` | Renders the table dynamically from the database and drives search, category filtering and the detail dialog. |
+| `data/elements.js` | The element database: an array of 118 element objects (`window.PERIODIC_DB`), one per known element, with physical, chemical and historical data. |
+| `data/isotopes.js` | The isotope database (`window.ISOTOPE_DB`): all ~3,500 known nuclide ground states from the NUBASE2020 evaluation, grouped by atomic number. |
+| `js/app.js` | Renders the table dynamically from the database and drives search, category filtering, the detail dialog, the isotope table and decay-chain tracing. |
 | `css/style.css` | Theme-aware styles (light + dark) with a colorblind-validated category palette. |
 | `index.html` | The page shell. |
 
@@ -28,6 +29,16 @@ python3 -m http.server 8000
   melting/boiling points (K and °C), electronegativity, electron affinity,
   first ionization energy, molar heat, electron configuration, shell
   occupancy, appearance, discoverer, and a summary with a Wikipedia source link.
+- **Isotopes**: each element card lists every known isotope — half-life,
+  natural abundance (with bars), decay modes with branching ratios, spin/parity,
+  atomic mass, metastable-isomer count, and year of discovery. Stable isotopes
+  are badged; a summary line names the most abundant isotope and the
+  longest-lived radioisotope.
+- **Decay chains**: click any radioactive isotope to trace its decay series —
+  the dominant branch is followed step by step (e.g. ²³⁸U → ²³⁴Th → … → ²⁰⁶Pb)
+  down to a stable nuclide or spontaneous fission, with the classical series
+  (thorium 4n, neptunium 4n+1, uranium 4n+2, actinium 4n+3) identified for
+  heavy nuclides.
 - Navigate between elements from the dialog (Prev/Next buttons or arrow keys).
 - Live search by name, symbol or atomic number.
 - Clickable legend chips to filter by category.
@@ -58,8 +69,26 @@ Each element object looks like:
 }
 ```
 
-## Data source
+Each isotope record in `data/isotopes.js` looks like:
 
-Element data derived from
-[Bowserinator/Periodic-Table-JSON](https://github.com/Bowserinator/Periodic-Table-JSON),
-licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+```js
+{
+  a: 238,                    // mass number
+  m: 238.050787,             // atomic mass (u)
+  h: "4.463 Gy", hs: 1.4e17, // half-life (display string / seconds)
+  jp: "0+",                  // spin and parity
+  ab: 99.2742,               // natural abundance (%)
+  y: 1896,                   // year of discovery
+  dm: [["A","=",100], ["SF","=",5.44e-5], ["2B-","=",2.2e-10]], // decay modes
+  isomers: 1                 // known metastable isomers
+}
+```
+
+## Data sources
+
+- Element data derived from
+  [Bowserinator/Periodic-Table-JSON](https://github.com/Bowserinator/Periodic-Table-JSON),
+  licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+- Isotope data from the **NUBASE2020 evaluation**: F.G. Kondev, M. Wang,
+  W.J. Huang, S. Naimi, G. Audi,
+  [Chin. Phys. C45, 030001 (2021)](https://doi.org/10.1088/1674-1137/abddae).

@@ -23,6 +23,9 @@
   --cat-lanthanide: #e87ba4;
   --cat-actinide: #9085e9;
   --cat-unknown: #898781;
+
+  --stable: #0ca30c;
+  --stable-ink: #006300;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -44,6 +47,7 @@
     --cat-metalloid: #c98500;
     --cat-noble-gas: #9085e9;
     --cat-actinide: #6d5fc9;
+    --stable-ink: #0ca30c;
   }
 }
 :root[data-theme="light"] {
@@ -54,6 +58,7 @@
   --cat-alkali-metal: #e34948; --cat-alkaline-earth-metal: #eb6834;
   --cat-transition-metal: #2a78d6; --cat-post-transition-metal: #1baf7a;
   --cat-metalloid: #eda100; --cat-noble-gas: #4a3aa7; --cat-actinide: #9085e9;
+  --stable: #0ca30c; --stable-ink: #006300;
 }
 :root[data-theme="dark"] {
   --surface-1: #1a1a19; --page: #0d0d0d;
@@ -63,6 +68,7 @@
   --cat-alkali-metal: #e66767; --cat-alkaline-earth-metal: #d95926;
   --cat-transition-metal: #3987e5; --cat-post-transition-metal: #199e70;
   --cat-metalloid: #c98500; --cat-noble-gas: #9085e9; --cat-actinide: #6d5fc9;
+  --stable: #0ca30c; --stable-ink: #0ca30c;
 }
 
 * { box-sizing: border-box; }
@@ -171,8 +177,8 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 .detail {
   border: 1px solid var(--hairline); border-radius: 14px;
   background: var(--surface-1); color: var(--text-primary);
-  padding: 0; width: min(680px, calc(100vw - 32px));
-  max-height: min(86vh, 760px);
+  padding: 0; width: min(880px, calc(100vw - 32px));
+  max-height: min(88vh, 860px);
 }
 .detail::backdrop { background: rgba(0, 0, 0, 0.45); }
 .detail-inner { padding: 22px 24px 18px; }
@@ -223,6 +229,74 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
   padding: 2px 7px; font-size: 0.75rem; color: var(--text-secondary);
 }
 .shell b { color: var(--text-primary); }
+
+/* Isotopes section */
+.iso-section { margin: 6px 0 12px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+.iso-section h3 { margin: 0 0 4px; font-size: 1.02rem; }
+.iso-count { font-size: 0.72rem; font-weight: 400; color: var(--text-muted); margin-left: 6px; }
+.iso-facts { margin: 0 0 2px; font-size: 0.78rem; color: var(--text-secondary); }
+.iso-hint { margin: 0 0 8px; font-size: 0.7rem; color: var(--text-muted); }
+
+.iso-scroll {
+  max-height: 340px; overflow: auto;
+  border: 1px solid var(--hairline); border-radius: 8px;
+}
+.iso-table { border-collapse: collapse; width: 100%; font-size: 0.76rem; }
+.iso-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface-1); color: var(--text-muted);
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--hairline);
+}
+.iso-table td {
+  padding: 5px 10px; border-bottom: 1px solid var(--hairline);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.iso-table tbody tr:last-child td { border-bottom: none; }
+.iso-table .nuc { font-weight: 600; }
+.iso-table .mass { color: var(--text-secondary); }
+.iso-row.radioactive { cursor: pointer; }
+.iso-row.radioactive:hover td, .iso-row.radioactive:focus-visible td {
+  background: color-mix(in srgb, var(--cat) 10%, transparent);
+}
+
+.stable-badge {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.66rem; font-weight: 600;
+  color: var(--stable-ink); background: color-mix(in srgb, var(--stable) 18%, transparent);
+}
+.isomer-badge {
+  margin-left: 5px; padding: 0 5px; border-radius: 5px;
+  font-size: 0.62rem; font-weight: 400; color: var(--text-muted);
+  border: 1px solid var(--hairline);
+}
+.decay-chip {
+  display: inline-block; margin-right: 4px; padding: 1px 7px;
+  border: 1px solid var(--hairline); border-radius: 999px;
+  font-size: 0.68rem; color: var(--text-secondary);
+}
+.ab .ab-bar {
+  display: inline-block; vertical-align: middle;
+  width: calc(var(--w) * 0.42); max-width: 42px; height: 7px;
+  margin-right: 6px; border-radius: 3px;
+  background: color-mix(in srgb, var(--cat) 65%, var(--surface-1));
+}
+
+/* Decay chain */
+.chain-row > td { background: color-mix(in srgb, var(--cat) 5%, transparent); white-space: normal; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 7px; padding: 4px 0; }
+.chain-pill {
+  display: inline-flex; flex-direction: column; align-items: center;
+  padding: 3px 9px; border-radius: 8px;
+  border: 1px solid var(--hairline); background: var(--surface-1);
+}
+.chain-pill b { font-size: 0.8rem; }
+.chain-pill small { font-size: 0.6rem; color: var(--text-muted); }
+.chain-pill.stable { border-color: var(--stable); box-shadow: inset 0 0 0 1px var(--stable); }
+.chain-pill.fission { border-style: dashed; }
+.chain-arrow { font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; }
+.chain-note { font-size: 0.7rem; color: var(--text-secondary); padding: 2px 0 4px; }
+.iso-src { margin: 8px 0 0; font-size: 0.66rem; color: var(--text-muted); }
 
 .detail-src { font-size: 0.72rem; color: var(--text-muted); }
 .detail-src a { color: var(--text-secondary); }
