@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Periodic Table of the Elements</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="titles">
+      <h1>Periodic Table of the Elements</h1>
+      <p class="subtitle">All 118 known elements — click any element for its full data record.</p>
+    </div>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search name, symbol or number…" autocomplete="off" aria-label="Search elements">
+    </div>
+  </header>
+
+  <nav id="legend" class="legend" aria-label="Element categories"></nav>
+
+  <div class="table-scroll">
+    <main id="table" class="ptable" aria-label="Periodic table grid"></main>
+  </div>
+
+  <footer class="app-footer">
+    <span id="count-note"></span>
+    <span>Element data: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Temperatures in K, energies in kJ/mol.</span>
+  </footer>
+</div>
+
+<dialog id="detail" class="detail" aria-labelledby="detail-name">
+  <div class="detail-inner">
+    <button class="close-btn" id="detail-close" aria-label="Close">✕</button>
+    <div id="detail-body"></div>
+    <div class="detail-nav">
+      <button id="prev-el" class="nav-btn">← Prev</button>
+      <button id="next-el" class="nav-btn">Next →</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="data/elements.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
