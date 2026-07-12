@@ -380,6 +380,93 @@
     row.after(tr);
   }
 
+  // ---- branching decay tree ---------------------------------------------------
+
+  const BRANCH_MIN = 1;       // % — smaller branches stay visible per-nuclide
+  const TREE_MAX_NODES = 80;  // safety cap for pathological cases
+
+  // All quantified branches above the threshold; if nothing qualifies
+  // (e.g. every branch is "?"), fall back to the dominant one so the tree
+  // still continues.
+  function significantBranches(rec) {
+    const dm = [...rec.dm].sort((x, y) => (y[2] ?? -1) - (x[2] ?? -1));
+    const sig = dm.filter((d) => d[2] !== null && d[2] >= BRANCH_MIN);
+    if (!sig.length && dm.length) sig.push(dm[0]);
+    return sig;
+  }
+
+  function buildDecayTree(z, a, state, path) {
+    state.count++;
+    const rec = findIso(z, a);
+    const node = { z, a, rec, branches: [], term: null };
+    if (!rec) { node.term = 'edge'; return node; }
+    if (rec.h === 'stable') { node.term = 'stable'; return node; }
+    const key = z + '-' + a;
+    if (path.has(key)) { node.term = 'loop'; return node; }
+    if (state.count > TREE_MAX_NODES) { node.term = 'truncated'; return node; }
+    path.add(key);
+    for (const d of significantBranches(rec)) {
+      const delta = modeDelta(d[0]);
+      if (delta === null) node.branches.push({ via: d, child: { term: 'fission' } });
+      else if (delta === undefined) node.branches.push({ via: d, child: { term: 'unknown' } });
+      else node.branches.push({ via: d, child: buildDecayTree(z + delta[0], a + delta[1], state, path) });
+    }
+    path.delete(key);
+    return node;
+  }
+
+  function treePill(node) {
+    if (node.term === 'fission') {
+      return `<span class="chain-pill fission"><b>${L('fissionFragments', 'fission fragments')}</b><small>SF</small></span>`;
+    }
+    if (node.term === 'unknown') return '<span class="chain-arrow">…?</span>';
+    let suffix = '';
+    if (node.term === 'loop') suffix = ' <span class="chain-arrow">↺</span>';
+    if (node.term === 'truncated') suffix = ' <span class="chain-arrow">…</span>';
+    return chainPill(node.z, node.a, node.rec) + suffix;
+  }
+
+  // Linear runs stack vertically at one indent level; the tree only nests
+  // deeper at real branch points, so long chains don't drift off-screen.
+  function treeChildren(node) {
+    return node.branches.map((b) => {
+      let rows = '';
+      let cur = b;
+      let tail = null;
+      for (;;) {
+        rows += `
+          <div class="tree-node">
+            <span class="decay-chip">${branchText(cur.via)}</span>
+            <span class="tree-arrow">→</span>
+            ${treePill(cur.child)}
+          </div>`;
+        const kids = cur.child.branches;
+        if (!kids || kids.length === 0) break;
+        if (kids.length > 1) { tail = cur.child; break; }
+        cur = kids[0];
+      }
+      return `<li><div class="tree-run">${rows}</div>${tail ? `<ul>${treeChildren(tail)}</ul>` : ''}</li>`;
+    }).join('');
+  }
+
+  function decayTreeHTML(z, a) {
+    const root = buildDecayTree(z, a, { count: 0 }, new Set());
+    if (!root.branches.length) return '';
+    let note = '';
+    const { steps } = decayChain(z, a);
+    if (z >= 81 && steps.some((s) => s.via && s.via[0] === 'A')) {
+      note = `<div class="chain-note">${L('memberOf', 'Member of the')} ${seriesName(a)}.</div>`;
+    }
+    return `
+      <h4>${L('decayChainTitle', 'Decay chain')}</h4>
+      <p class="tree-note">${L('treeNote', 'Branching tree — every decay branch with intensity ≥ 1% is followed; open a nuclide for its minor branches.')}</p>
+      <div class="decay-tree">
+        ${treePill(root)}
+        <ul>${treeChildren(root)}</ul>
+      </div>
+      ${note}`;
+  }
+
   // ---- nuclide pop-up -------------------------------------------------------
 
   function decayProductsHTML(z, a, rec) {
@@ -412,9 +499,7 @@
     nuclideDialog.style.setProperty('--cat', `var(${catVar(el.category)})`);
 
     const stable = rec.h === 'stable';
-    const chainSection = stable ? '' : `
-      <h4>${L('decayChainTitle', 'Decay chain')}</h4>
-      ${chainHTML(z, a, true)}`;
+    const chainSection = stable ? '' : decayTreeHTML(z, a);
 
     nuclideBody.innerHTML = `
       <div class="detail-head">

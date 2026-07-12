@@ -18,6 +18,7 @@ window.LOCALES.cs = {
     nuclideDetail: 'Zobrazit detail nuklidu',
     decayProducts: 'Produkty rozpadu',
     decayChainTitle: 'Rozpadová řada',
+    treeNote: 'Větvený strom — sledovány jsou všechny větve rozpadu s intenzitou ≥ 1 %; menší větve najdete v detailu jednotlivých nuklidů.',
     isotopeOf: 'Izotop prvku',
     radioactive: 'radioaktivní',
     protons: 'Protony (Z)',

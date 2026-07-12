@@ -45,8 +45,10 @@ python3 -m http.server 8000
 - **Nuclide pop-up**: click any nuclide inside a decay chain (or a decay
   product) to open an enlarged pop-up with its full record — protons/neutrons/
   nucleons, mass, half-life, spin, abundance, discovery year, isomer count,
-  every decay branch with its daughter nuclide, and the onward decay chain in
-  large type. Chains are navigable: each nuclide in the pop-up is clickable.
+  every decay branch with its daughter nuclide, and a **branching decay tree**:
+  every branch with intensity ≥ 1% is followed (e.g. ²¹²Bi forks 64% β⁻ / 36% α,
+  both arms converging on stable ²⁰⁸Pb), linear runs stack vertically and the
+  tree only nests at real branch points. Every nuclide in the tree is clickable.
 - **Language toggle**: EN/CS switch in the header changes the whole UI —
   element names, summaries, labels, categories — live, without reloading;
   the choice is remembered (localStorage). `index.html` defaults to English,
