@@ -11,7 +11,10 @@ is an object in a local database.
 | `data/isotopes.js` | The isotope database (`window.ISOTOPE_DB`): all ~3,500 known nuclide ground states from the NUBASE2020 evaluation, grouped by atomic number. |
 | `js/app.js` | Renders the table dynamically from the database and drives search, category filtering, the detail dialog, the isotope table and decay-chain tracing. |
 | `css/style.css` | Theme-aware styles (light + dark) with a colorblind-validated category palette. |
-| `index.html` | The page shell. |
+| `index.html` | The page shell (English). |
+| `PSChP.html` | Czech version of the app — *Periodická soustava chemických prvků*. Same code and databases, localized via `data/locale_cs.js`. |
+| `data/locale_cs.js` | Czech localization: UI strings, category/phase names, and Czech element names + summaries (`window.LOCALE`). |
+| `rawdata/` | Backup of the raw source datasets (Periodic-Table-JSON, NUBASE2020) and the scripts that regenerate the databases from them. |
 
 No build step and no dependencies — open `index.html` in any modern browser,
 or serve the folder statically:
