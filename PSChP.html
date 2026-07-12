@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="cs" data-default-lang="cs">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,6 +15,10 @@
     </div>
     <div class="controls">
       <input id="search" type="search" placeholder="Hledat název, značku nebo číslo…" autocomplete="off" aria-label="Hledat prvky">
+      <div class="lang-toggle" role="group" aria-label="Jazyk">
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" data-lang="cs" aria-pressed="true">CS</button>
+      </div>
     </div>
   </header>
 
@@ -26,8 +30,7 @@
 
   <footer class="app-footer">
     <span id="count-note"></span>
-    <span>Data o prvcích: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Izotopová data: <a href="https://doi.org/10.1088/1674-1137/abddae" target="_blank" rel="noopener">NUBASE2020</a>. Teploty v K, energie v kJ/mol.</span>
-    <span><a href="index.html">English version</a></span>
+    <span id="data-credit">Data o prvcích: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Izotopová data: <a href="https://doi.org/10.1088/1674-1137/abddae" target="_blank" rel="noopener">NUBASE2020</a>. Teploty v K, energie v kJ/mol.</span>
   </footer>
 </div>
 
@@ -39,6 +42,13 @@
       <button id="prev-el" class="nav-btn">← Předchozí</button>
       <button id="next-el" class="nav-btn">Další →</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="nuclide" class="detail nuclide" aria-labelledby="nuclide-name">
+  <div class="detail-inner">
+    <button class="close-btn" id="nuclide-close" aria-label="Zavřít">✕</button>
+    <div id="nuclide-body"></div>
   </div>
 </dialog>
 

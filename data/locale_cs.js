@@ -1,9 +1,31 @@
-// Czech localization for the periodic table (used by PSChP.html).
+// Czech localization for the periodic table.
+// Locales register themselves in window.LOCALES; the app's language toggle
+// switches between them at runtime ('en' is the built-in fallback).
 // elements: { atomicNumber: [Czech name, Czech summary, wiki title override?] }
 // The Wikipedia link is built from the Czech name unless a title override is given.
-window.LOCALE = {
+window.LOCALES = window.LOCALES || {};
+window.LOCALES.cs = {
   lang: 'cs',
   ui: {
+    pageTitle: 'Periodická soustava chemických prvků',
+    subtitle: 'Všech 118 známých prvků — klikněte na kterýkoli prvek pro úplný datový záznam.',
+    searchPlaceholder: 'Hledat název, značku nebo číslo…',
+    searchAria: 'Hledat prvky',
+    prev: '← Předchozí',
+    next: 'Další →',
+    close: 'Zavřít',
+    credit: 'Data o prvcích: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Izotopová data: <a href="https://doi.org/10.1088/1674-1137/abddae" target="_blank" rel="noopener">NUBASE2020</a>. Teploty v K, energie v kJ/mol.',
+    nuclideDetail: 'Zobrazit detail nuklidu',
+    decayProducts: 'Produkty rozpadu',
+    decayChainTitle: 'Rozpadová řada',
+    isotopeOf: 'Izotop prvku',
+    radioactive: 'radioaktivní',
+    protons: 'Protony (Z)',
+    neutrons: 'Neutrony (N)',
+    nucleons: 'Nukleony (A)',
+    estimated: 'odhad',
+    isomersLabel: 'Metastabilní izomery',
+    openElement: 'Otevřít kartu prvku',
     atomicNumber: 'protonové číslo',
     elements: 'prvků',
     categories: 'kategorií',
@@ -35,7 +57,7 @@ window.LOCALE = {
     known: 'známých',
     stableCount: 'stabilních',
     radioactiveCount: 'radioaktivních',
-    isoHint: 'Kliknutím na radioaktivní izotop zobrazíte jeho rozpadovou řadu.',
+    isoHint: 'Kliknutím na radioaktivní izotop zobrazíte jeho rozpadovou řadu; kliknutím na kterýkoli nuklid v řadě otevřete jeho zvětšený detail.',
     thNuclide: 'Nuklid',
     thHalfLife: 'Poločas rozpadu',
     thAbundance: 'Zastoupení',

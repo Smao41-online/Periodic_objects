@@ -1,17 +1,33 @@
 /* Renders the periodic table from window.PERIODIC_DB and drives the
-   search filter, category legend and the per-element detail dialog. */
+   search filter, category legend, the per-element detail dialog, the isotope
+   tables with decay chains, the enlarged per-nuclide pop-up, and the live
+   EN/CS language toggle (locales register themselves in window.LOCALES). */
 (function () {
   'use strict';
 
   const DB = window.PERIODIC_DB;
   const ISO = window.ISOTOPE_DB || {};
+  const LOCALES = window.LOCALES || {};
   const byNumber = new Map(DB.map((el) => [el.number, el]));
   const zBySymbol = new Map(DB.map((el) => [el.symbol, el.number]));
 
-  // Optional localization: a page may define window.LOCALE (see
-  // data/locale_cs.js) before this script loads; everything falls back to the
-  // English strings baked into the data and this file.
-  const LOC = window.LOCALE || null;
+  // ---- localization --------------------------------------------------------
+
+  // English page strings live here; other languages provide them via their
+  // locale's ui map. LOC is null for English so every L() falls back.
+  const STATIC_EN = {
+    pageTitle: 'Periodic Table of the Elements',
+    subtitle: 'All 118 known elements — click any element for its full data record.',
+    searchPlaceholder: 'Search name, symbol or number…',
+    searchAria: 'Search elements',
+    prev: '← Prev',
+    next: 'Next →',
+    close: 'Close',
+    credit: 'Element data: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Isotope data: <a href="https://doi.org/10.1088/1674-1137/abddae" target="_blank" rel="noopener">NUBASE2020</a>. Temperatures in K, energies in kJ/mol.',
+  };
+
+  let lang = null;
+  let LOC = null;
   const L = (key, en) => (LOC && LOC.ui && LOC.ui[key]) || en;
   const elName = (el) => (LOC && LOC.elements[el.number] && LOC.elements[el.number][0]) || el.name;
   const elSummary = (el) => (LOC && LOC.elements[el.number] && LOC.elements[el.number][1]) || el.summary;
@@ -43,13 +59,17 @@
   const searchEl = document.getElementById('search');
   const dialog = document.getElementById('detail');
   const detailBody = document.getElementById('detail-body');
+  const nuclideDialog = document.getElementById('nuclide');
+  const nuclideBody = document.getElementById('nuclide-body');
 
   let activeCategory = null; // legend filter, null = all
   let openNumber = null;     // element currently shown in the dialog
+  let openNuclideZA = null;  // [z, a] currently shown in the nuclide pop-up
 
   // ---- table -------------------------------------------------------------
 
   function buildTable() {
+    tableEl.innerHTML = '';
     const frag = document.createDocumentFragment();
 
     for (const el of DB) {
@@ -92,12 +112,13 @@
   // ---- legend + search filtering ------------------------------------------
 
   function buildLegend() {
+    legendEl.innerHTML = '';
     for (const cat of CATEGORIES) {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'legend-chip';
       chip.style.setProperty('--chip-color', `var(${catVar(cat)})`);
-      chip.setAttribute('aria-pressed', 'false');
+      chip.setAttribute('aria-pressed', String(activeCategory === cat));
       chip.innerHTML = `<span class="swatch"></span>${catLabel(cat)}`;
       chip.addEventListener('click', () => {
         activeCategory = activeCategory === cat ? null : cat;
@@ -130,6 +151,41 @@
   }
 
   searchEl.addEventListener('input', applyFilter);
+
+  // ---- language switching ---------------------------------------------------
+
+  function applyStatics() {
+    const S = (key) => L(key, STATIC_EN[key]);
+    document.title = S('pageTitle');
+    document.documentElement.lang = lang;
+    document.querySelector('.titles h1').textContent = S('pageTitle');
+    document.querySelector('.subtitle').textContent = S('subtitle');
+    searchEl.placeholder = S('searchPlaceholder');
+    searchEl.setAttribute('aria-label', S('searchAria'));
+    document.getElementById('prev-el').textContent = S('prev');
+    document.getElementById('next-el').textContent = S('next');
+    document.querySelectorAll('.close-btn').forEach((b) => b.setAttribute('aria-label', S('close')));
+    const credit = document.getElementById('data-credit');
+    if (credit) credit.innerHTML = S('credit');
+  }
+
+  function setLang(next) {
+    if (!LOCALES[next]) next = 'en';
+    lang = next;
+    LOC = next === 'en' ? null : LOCALES[next];
+    try { localStorage.setItem('ptLang', lang); } catch (e) { /* private mode */ }
+    document.querySelectorAll('.lang-toggle button').forEach((b) =>
+      b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    applyStatics();
+    buildTable();
+    buildLegend();
+    applyFilter();
+    if (nuclideDialog.open) nuclideDialog.close();
+    if (dialog.open && openNumber) openDetail(openNumber);
+  }
+
+  document.querySelectorAll('.lang-toggle button').forEach((b) =>
+    b.addEventListener('click', () => setLang(b.dataset.lang)));
 
   // ---- detail dialog -------------------------------------------------------
 
@@ -233,28 +289,33 @@
   }
 
   // The four classical heavy-element decay series, by A mod 4.
-  const SERIES = (LOC && LOC.series) || ['thorium series (4n)', 'neptunium series (4n+1)',
-    'uranium series (4n+2)', 'actinium series (4n+3)'];
+  const seriesName = (a) => ((LOC && LOC.series) || ['thorium series (4n)', 'neptunium series (4n+1)',
+    'uranium series (4n+2)', 'actinium series (4n+3)'])[a % 4];
 
-  function chainHTML(z, a) {
+  function chainPill(z, a, rec, extraClass) {
+    const stable = rec && rec.h === 'stable';
+    const known = !!rec;
+    return `<span class="chain-pill${stable ? ' stable' : ''}${known ? ' clickable' : ''}${extraClass || ''}"
+      ${known ? `data-z="${z}" data-a="${a}" role="button" tabindex="0" title="${L('nuclideDetail', 'Show nuclide details')}"` : ''}>
+      <b>${nuclideName(z, a)}</b>
+      <small>${rec ? halfLifeText(rec) : '?'}</small>
+    </span>`;
+  }
+
+  function chainHTML(z, a, big) {
     const { steps, end } = decayChain(z, a);
     const parts = [];
     for (const s of steps) {
-      const stable = s.rec && s.rec.h === 'stable';
-      parts.push(
-        `<span class="chain-pill${stable ? ' stable' : ''}">
-           <b>${nuclideName(s.z, s.a)}</b>
-           <small>${s.rec ? halfLifeText(s.rec) : '?'}</small>
-         </span>`);
+      parts.push(chainPill(s.z, s.a, s.rec));
       if (s.via) parts.push(`<span class="chain-arrow">—${branchText(s.via)}→</span>`);
     }
     if (end === 'fission') parts.push(`<span class="chain-pill fission"><b>${L('fissionFragments', 'fission fragments')}</b><small>SF</small></span>`);
     if (end === 'edge' || end === 'unknown') parts.push('<span class="chain-arrow">…?</span>');
     let note = '';
     if (z >= 81 && steps.some((s) => s.via && s.via[0] === 'A')) {
-      note = `<div class="chain-note">${L('memberOf', 'Member of the')} ${SERIES[a % 4]}.</div>`;
+      note = `<div class="chain-note">${L('memberOf', 'Member of the')} ${seriesName(a)}.</div>`;
     }
-    return `<div class="chain">${parts.join('')}</div>${note}`;
+    return `<div class="chain${big ? ' big' : ''}">${parts.join('')}</div>${note}`;
   }
 
   function isoRow(el, rec) {
@@ -262,7 +323,7 @@
     const abBar = rec.ab !== null
       ? `<span class="ab-bar" style="--w:${Math.max(rec.ab, 1.5)}%"></span>${rec.ab}%` : '—';
     const decays = stable
-      ? '<span class="stable-badge">stable</span>'
+      ? `<span class="stable-badge">${L('stable', 'stable')}</span>`
       : rec.dm.map((d) => `<span class="decay-chip">${branchText(d)}</span>`).join('') || '—';
     const isomers = rec.isomers ? `<span class="isomer-badge" title="${rec.isomers} ${L('isomerTitle', 'known metastable isomer(s)')}">+${rec.isomers}m</span>` : '';
     return `
@@ -296,7 +357,7 @@
       <section class="iso-section">
         <h3>${L('isotopes', 'Isotopes')} <span class="iso-count">${list.length} ${L('known', 'known')} · ${stable.length} ${L('stableCount', 'stable')} · ${radio.length} ${L('radioactiveCount', 'radioactive')}</span></h3>
         ${facts.length ? `<p class="iso-facts">${facts.join(' · ')}</p>` : ''}
-        <p class="iso-hint">${L('isoHint', 'Click a radioactive isotope to trace its decay chain.')}</p>
+        <p class="iso-hint">${L('isoHint', 'Click a radioactive isotope to trace its decay chain; click any nuclide in a chain for its enlarged detail.')}</p>
         <div class="iso-scroll">
           <table class="iso-table">
             <thead><tr>
@@ -310,18 +371,6 @@
       </section>`;
   }
 
-  // Expand/collapse decay chains from the isotope table (event delegation —
-  // the table is re-rendered for every element).
-  detailBody.addEventListener('click', (e) => {
-    const row = e.target.closest('.iso-row.radioactive');
-    if (row) toggleChain(row);
-  });
-  detailBody.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const row = e.target.closest('.iso-row.radioactive');
-    if (row) { e.preventDefault(); toggleChain(row); }
-  });
-
   function toggleChain(row) {
     const next = row.nextElementSibling;
     if (next && next.classList.contains('chain-row')) { next.remove(); return; }
@@ -330,6 +379,83 @@
     tr.innerHTML = `<td colspan="8">${chainHTML(openNumber, Number(row.dataset.a))}</td>`;
     row.after(tr);
   }
+
+  // ---- nuclide pop-up -------------------------------------------------------
+
+  function decayProductsHTML(z, a, rec) {
+    if (rec.h === 'stable' || !rec.dm.length) return '';
+    const rows = rec.dm.map((d) => {
+      const delta = modeDelta(d[0]);
+      let target = '';
+      if (delta === null) {
+        target = `<span class="chain-pill fission"><b>${L('fissionFragments', 'fission fragments')}</b><small>SF</small></span>`;
+      } else if (delta === undefined) {
+        target = '<span class="chain-arrow">?</span>';
+      } else {
+        const dz = z + delta[0], da = a + delta[1];
+        target = chainPill(dz, da, findIso(dz, da));
+      }
+      return `<div class="decay-product">
+        <span class="decay-chip">${branchText(d)}</span>
+        <span class="chain-arrow">→</span>
+        ${target}
+      </div>`;
+    }).join('');
+    return `<h4>${L('decayProducts', 'Decay products')}</h4><div class="decay-products">${rows}</div>`;
+  }
+
+  function openNuclide(z, a) {
+    const rec = findIso(z, a);
+    const el = byNumber.get(z);
+    if (!rec || !el) return;
+    openNuclideZA = [z, a];
+    nuclideDialog.style.setProperty('--cat', `var(${catVar(el.category)})`);
+
+    const stable = rec.h === 'stable';
+    const chainSection = stable ? '' : `
+      <h4>${L('decayChainTitle', 'Decay chain')}</h4>
+      ${chainHTML(z, a, true)}`;
+
+    nuclideBody.innerHTML = `
+      <div class="detail-head">
+        <div class="detail-tile nuclide-tile">
+          <span class="sym">${nuclideName(z, a)}</span>
+          <span class="num">${elName(el)}</span>
+        </div>
+        <div>
+          <h2 id="nuclide-name">${L('isotopeOf', 'Isotope of')} ${elName(el)} (${el.symbol})</h2>
+          ${stable
+            ? `<span class="stable-badge big-badge">${L('stable', 'stable')}</span>`
+            : `<span class="cat-chip">${L('radioactive', 'radioactive')} · ${L('thHalfLife', 'Half-life')}: <b>&nbsp;${halfLifeText(rec)}</b></span>`}
+        </div>
+      </div>
+      <div class="props nuclide-props">
+        ${prop(L('protons', 'Protons (Z)'), z)}
+        ${prop(L('neutrons', 'Neutrons (N)'), a - z)}
+        ${prop(L('nucleons', 'Nucleons (A)'), a)}
+        ${prop(L('thMass', 'Mass (u)'), rec.m ?? '—')}
+        ${prop(L('thHalfLife', 'Half-life'), halfLifeText(rec) + (rec.he ? ` <small>(${L('estimated', 'estimated')})</small>` : ''))}
+        ${prop(L('thSpin', 'Spin / parity'), rec.jp ?? '—')}
+        ${prop(L('thAbundance', 'Natural abundance'), rec.ab !== null ? rec.ab + '%' : '—')}
+        ${prop(L('thFound', 'Year discovered'), rec.y ?? '—')}
+        ${prop(L('isomersLabel', 'Metastable isomers'), rec.isomers || '0')}
+      </div>
+      ${decayProductsHTML(z, a, rec)}
+      ${chainSection}
+      <div class="nuclide-foot">
+        <button type="button" class="nav-btn" id="open-element">${L('openElement', 'Open element card')} — ${elName(el)}</button>
+      </div>`;
+
+    nuclideBody.querySelector('#open-element').addEventListener('click', () => {
+      nuclideDialog.close();
+      openDetail(z);
+    });
+
+    if (!nuclideDialog.open) nuclideDialog.showModal();
+    nuclideDialog.querySelector('.detail-inner').scrollTop = 0;
+  }
+
+  // ---- element detail rendering ---------------------------------------------
 
   function openDetail(number) {
     const el = byNumber.get(number);
@@ -376,17 +502,51 @@
     dialog.querySelector('.detail-inner').scrollTop = 0;
   }
 
+  // ---- event wiring ----------------------------------------------------------
+
+  // Chains and nuclide pills use event delegation — both dialog bodies are
+  // re-rendered constantly.
+  function chainPillTarget(e) {
+    const pill = e.target.closest('.chain-pill.clickable');
+    return pill ? [Number(pill.dataset.z), Number(pill.dataset.a)] : null;
+  }
+
+  function bodyClick(e) {
+    const pill = chainPillTarget(e);
+    if (pill) { openNuclide(pill[0], pill[1]); return; }
+    const row = e.target.closest('.iso-row.radioactive');
+    if (row) toggleChain(row);
+  }
+  function bodyKeydown(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const pill = chainPillTarget(e);
+    if (pill) { e.preventDefault(); openNuclide(pill[0], pill[1]); return; }
+    const row = e.target.closest('.iso-row.radioactive');
+    if (row) { e.preventDefault(); toggleChain(row); }
+  }
+  detailBody.addEventListener('click', bodyClick);
+  detailBody.addEventListener('keydown', bodyKeydown);
+  nuclideBody.addEventListener('click', bodyClick);
+  nuclideBody.addEventListener('keydown', bodyKeydown);
+
   document.getElementById('detail-close').addEventListener('click', () => dialog.close());
+  document.getElementById('nuclide-close').addEventListener('click', () => nuclideDialog.close());
   document.getElementById('prev-el').addEventListener('click', () => openDetail(openNumber - 1));
   document.getElementById('next-el').addEventListener('click', () => openDetail(openNumber + 1));
-  dialog.addEventListener('click', (e) => {
-    if (e.target === dialog) dialog.close(); // click on the backdrop
-  });
+  for (const dlg of [dialog, nuclideDialog]) {
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg) dlg.close(); // click on the backdrop
+    });
+  }
   dialog.addEventListener('keydown', (e) => {
+    if (nuclideDialog.open) return; // arrows belong to the pop-up while it is on top
     if (e.key === 'ArrowLeft' && openNumber > 1) openDetail(openNumber - 1);
     if (e.key === 'ArrowRight' && openNumber < DB.length) openDetail(openNumber + 1);
   });
 
-  buildTable();
-  buildLegend();
+  // ---- boot ------------------------------------------------------------------
+
+  let initial = document.documentElement.getAttribute('data-default-lang') || 'en';
+  try { initial = localStorage.getItem('ptLang') || initial; } catch (e) { /* private mode */ }
+  setLang(initial);
 })();

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-default-lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,6 +15,10 @@
     </div>
     <div class="controls">
       <input id="search" type="search" placeholder="Search name, symbol or number…" autocomplete="off" aria-label="Search elements">
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="cs" aria-pressed="false">CS</button>
+      </div>
     </div>
   </header>
 
@@ -26,8 +30,7 @@
 
   <footer class="app-footer">
     <span id="count-note"></span>
-    <span>Element data: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Isotope data: <a href="https://doi.org/10.1088/1674-1137/abddae" target="_blank" rel="noopener">NUBASE2020</a>. Temperatures in K, energies in kJ/mol.</span>
-    <span><a href="PSChP.html">Česká verze</a></span>
+    <span id="data-credit">Element data: <a href="https://github.com/Bowserinator/Periodic-Table-JSON" target="_blank" rel="noopener">Periodic-Table-JSON</a> (CC BY-SA 3.0). Isotope data: <a href="https://doi.org/10.1088/1674-1137/abddae" target="_blank" rel="noopener">NUBASE2020</a>. Temperatures in K, energies in kJ/mol.</span>
   </footer>
 </div>
 
@@ -42,8 +45,16 @@
   </div>
 </dialog>
 
+<dialog id="nuclide" class="detail nuclide" aria-labelledby="nuclide-name">
+  <div class="detail-inner">
+    <button class="close-btn" id="nuclide-close" aria-label="Close">✕</button>
+    <div id="nuclide-body"></div>
+  </div>
+</dialog>
+
 <script src="data/elements.js"></script>
 <script src="data/isotopes.js"></script>
+<script src="data/locale_cs.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -99,6 +99,22 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 }
 #search:focus { outline: 2px solid var(--cat-transition-metal); outline-offset: 1px; }
 
+.controls { display: flex; align-items: center; gap: 8px; }
+.lang-toggle {
+  display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden;
+}
+.lang-toggle button {
+  border: none; background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 0.78rem; font-weight: 600;
+  padding: 7px 11px; cursor: pointer;
+}
+.lang-toggle button + button { border-left: 1px solid var(--hairline); }
+.lang-toggle button:hover { color: var(--text-primary); }
+.lang-toggle button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--cat-transition-metal) 18%, var(--surface-1));
+  color: var(--text-primary);
+}
+
 /* Legend — clickable category filter chips */
 .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .legend-chip {
@@ -297,6 +313,38 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 .chain-arrow { font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; }
 .chain-note { font-size: 0.7rem; color: var(--text-secondary); padding: 2px 0 4px; }
 .iso-src { margin: 8px 0 0; font-size: 0.66rem; color: var(--text-muted); }
+
+/* Nuclide pop-up — enlarged view of one isotope and its decay chain */
+.nuclide { width: min(760px, calc(100vw - 32px)); }
+.nuclide .detail-tile.nuclide-tile { width: auto; min-width: 110px; padding: 0 14px; }
+.nuclide .detail-tile.nuclide-tile .sym { font-size: 1.7rem; }
+.nuclide .detail-head h2 { font-size: 1.25rem; }
+.nuclide h4 {
+  margin: 16px 0 8px; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+}
+.nuclide-props { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.big-badge { font-size: 0.8rem; padding: 3px 12px; }
+.nuclide .cat-chip b { color: var(--text-primary); }
+
+.decay-products { display: flex; flex-direction: column; gap: 6px; }
+.decay-product { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.chain-pill.clickable { cursor: pointer; }
+.chain-pill.clickable:hover, .chain-pill.clickable:focus-visible {
+  border-color: var(--cat, var(--text-muted));
+  background: color-mix(in srgb, var(--cat, var(--text-muted)) 12%, var(--surface-1));
+}
+.chain-pill.clickable:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 1px; }
+
+/* enlarged chain inside the pop-up */
+.chain.big { gap: 8px 10px; padding: 6px 0; }
+.chain.big .chain-pill { padding: 7px 14px; border-radius: 10px; }
+.chain.big .chain-pill b { font-size: 1.05rem; }
+.chain.big .chain-pill small { font-size: 0.72rem; }
+.chain.big .chain-arrow { font-size: 0.85rem; }
+
+.nuclide-foot { margin-top: 16px; display: flex; justify-content: flex-end; }
 
 .detail-src { font-size: 0.72rem; color: var(--text-muted); }
 .detail-src a { color: var(--text-secondary); }

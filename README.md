@@ -12,8 +12,8 @@ is an object in a local database.
 | `js/app.js` | Renders the table dynamically from the database and drives search, category filtering, the detail dialog, the isotope table and decay-chain tracing. |
 | `css/style.css` | Theme-aware styles (light + dark) with a colorblind-validated category palette. |
 | `index.html` | The page shell (English). |
-| `PSChP.html` | Czech version of the app — *Periodická soustava chemických prvků*. Same code and databases, localized via `data/locale_cs.js`. |
-| `data/locale_cs.js` | Czech localization: UI strings, category/phase names, and Czech element names + summaries (`window.LOCALE`). |
+| `PSChP.html` | Czech entry page — *Periodická soustava chemických prvků*. Same code and databases; defaults to Czech. |
+| `data/locale_cs.js` | Czech localization layer: UI strings, category/phase names, Czech element names + summaries. Locales register in `window.LOCALES`; the EN/CS toggle switches them live. |
 | `rawdata/` | Backup of the raw source datasets (Periodic-Table-JSON, NUBASE2020) and the scripts that regenerate the databases from them. |
 
 No build step and no dependencies — open `index.html` in any modern browser,
@@ -42,6 +42,15 @@ python3 -m http.server 8000
   down to a stable nuclide or spontaneous fission, with the classical series
   (thorium 4n, neptunium 4n+1, uranium 4n+2, actinium 4n+3) identified for
   heavy nuclides.
+- **Nuclide pop-up**: click any nuclide inside a decay chain (or a decay
+  product) to open an enlarged pop-up with its full record — protons/neutrons/
+  nucleons, mass, half-life, spin, abundance, discovery year, isomer count,
+  every decay branch with its daughter nuclide, and the onward decay chain in
+  large type. Chains are navigable: each nuclide in the pop-up is clickable.
+- **Language toggle**: EN/CS switch in the header changes the whole UI —
+  element names, summaries, labels, categories — live, without reloading;
+  the choice is remembered (localStorage). `index.html` defaults to English,
+  `PSChP.html` to Czech.
 - Navigate between elements from the dialog (Prev/Next buttons or arrow keys).
 - Live search by name, symbol or atomic number.
 - Clickable legend chips to filter by category.
