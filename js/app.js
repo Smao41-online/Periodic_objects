@@ -8,6 +8,24 @@
   const byNumber = new Map(DB.map((el) => [el.number, el]));
   const zBySymbol = new Map(DB.map((el) => [el.symbol, el.number]));
 
+  // Optional localization: a page may define window.LOCALE (see
+  // data/locale_cs.js) before this script loads; everything falls back to the
+  // English strings baked into the data and this file.
+  const LOC = window.LOCALE || null;
+  const L = (key, en) => (LOC && LOC.ui && LOC.ui[key]) || en;
+  const elName = (el) => (LOC && LOC.elements[el.number] && LOC.elements[el.number][0]) || el.name;
+  const elSummary = (el) => (LOC && LOC.elements[el.number] && LOC.elements[el.number][1]) || el.summary;
+  const phaseLabel = (p) => (LOC && LOC.phases && LOC.phases[p]) || p;
+  function elSource(el) {
+    if (!LOC) return { url: el.source, label: `Wikipedia — ${el.name}` };
+    const entry = LOC.elements[el.number] || [];
+    const title = entry[2] || entry[0] || el.name;
+    return {
+      url: 'https://cs.wikipedia.org/wiki/' + encodeURIComponent(title.replace(/ /g, '_')),
+      label: `Wikipedie — ${entry[0] || el.name}`,
+    };
+  }
+
   // Fixed legend order — roughly the reading order of the table itself.
   const CATEGORIES = [
     'alkali metal', 'alkaline earth metal', 'transition metal',
@@ -15,7 +33,10 @@
     'noble gas', 'lanthanide', 'actinide', 'unknown',
   ];
   const catVar = (cat) => `--cat-${cat.replace(/ /g, '-')}`;
-  const catLabel = (cat) => (cat === 'unknown' ? 'unknown properties' : cat);
+  const catLabel = (cat) => {
+    if (LOC && LOC.categories && LOC.categories[cat]) return LOC.categories[cat];
+    return cat === 'unknown' ? 'unknown properties' : cat;
+  };
 
   const tableEl = document.getElementById('table');
   const legendEl = document.getElementById('legend');
@@ -39,12 +60,12 @@
       btn.style.setProperty('--x', el.xpos);
       btn.style.setProperty('--y', el.ypos);
       btn.style.setProperty('--cat', `var(${catVar(el.category)})`);
-      btn.title = `${el.name} (${el.number}) — ${catLabel(el.category)}`;
-      btn.setAttribute('aria-label', `${el.name}, atomic number ${el.number}`);
+      btn.title = `${elName(el)} (${el.number}) — ${catLabel(el.category)}`;
+      btn.setAttribute('aria-label', `${elName(el)}, ${L('atomicNumber', 'atomic number')} ${el.number}`);
       btn.innerHTML = `
         <span class="num">${el.number}</span>
         <span class="sym">${el.symbol}</span>
-        <span class="name">${el.name}</span>
+        <span class="name">${elName(el)}</span>
         <span class="mass">${el.atomic_mass.toFixed(3).replace(/\.?0+$/, '')}</span>`;
       btn.addEventListener('click', () => openDetail(el.number));
       frag.appendChild(btn);
@@ -65,7 +86,7 @@
 
     tableEl.appendChild(frag);
     document.getElementById('count-note').textContent =
-      `${DB.length} elements · ${new Set(DB.map((e) => e.category)).size} categories`;
+      `${DB.length} ${L('elements', 'elements')} · ${new Set(DB.map((e) => e.category)).size} ${L('categories', 'categories')}`;
   }
 
   // ---- legend + search filtering ------------------------------------------
@@ -93,6 +114,7 @@
     if (!query) return true;
     return (
       el.name.toLowerCase().includes(query) ||
+      elName(el).toLowerCase().includes(query) ||
       el.symbol.toLowerCase() === query ||
       el.symbol.toLowerCase().startsWith(query) ||
       String(el.number) === query
@@ -123,7 +145,7 @@
   }
 
   function densityLabel(el) {
-    return el.phase === 'Gas' ? 'Density (g/L, STP)' : 'Density (g/cm³)';
+    return el.phase === 'Gas' ? L('densityGas', 'Density (g/L, STP)') : L('density', 'Density (g/cm³)');
   }
 
   // ---- isotopes & decay chains ---------------------------------------------
@@ -178,8 +200,8 @@
   }
 
   function halfLifeText(rec) {
-    if (rec.h === 'stable') return 'stable';
-    if (rec.h === 'p-unst') return 'unbound';
+    if (rec.h === 'stable') return L('stable', 'stable');
+    if (rec.h === 'p-unst') return L('unbound', 'unbound');
     if (rec.h === null) return '—';
     return (rec.he ? '≈ ' : '') + rec.h;
   }
@@ -211,7 +233,7 @@
   }
 
   // The four classical heavy-element decay series, by A mod 4.
-  const SERIES = ['thorium series (4n)', 'neptunium series (4n+1)',
+  const SERIES = (LOC && LOC.series) || ['thorium series (4n)', 'neptunium series (4n+1)',
     'uranium series (4n+2)', 'actinium series (4n+3)'];
 
   function chainHTML(z, a) {
@@ -226,11 +248,11 @@
          </span>`);
       if (s.via) parts.push(`<span class="chain-arrow">—${branchText(s.via)}→</span>`);
     }
-    if (end === 'fission') parts.push('<span class="chain-pill fission"><b>fission fragments</b><small>SF</small></span>');
+    if (end === 'fission') parts.push(`<span class="chain-pill fission"><b>${L('fissionFragments', 'fission fragments')}</b><small>SF</small></span>`);
     if (end === 'edge' || end === 'unknown') parts.push('<span class="chain-arrow">…?</span>');
     let note = '';
     if (z >= 81 && steps.some((s) => s.via && s.via[0] === 'A')) {
-      note = `<div class="chain-note">Member of the ${SERIES[a % 4]}.</div>`;
+      note = `<div class="chain-note">${L('memberOf', 'Member of the')} ${SERIES[a % 4]}.</div>`;
     }
     return `<div class="chain">${parts.join('')}</div>${note}`;
   }
@@ -242,9 +264,9 @@
     const decays = stable
       ? '<span class="stable-badge">stable</span>'
       : rec.dm.map((d) => `<span class="decay-chip">${branchText(d)}</span>`).join('') || '—';
-    const isomers = rec.isomers ? `<span class="isomer-badge" title="${rec.isomers} known metastable isomer(s)">+${rec.isomers}m</span>` : '';
+    const isomers = rec.isomers ? `<span class="isomer-badge" title="${rec.isomers} ${L('isomerTitle', 'known metastable isomer(s)')}">+${rec.isomers}m</span>` : '';
     return `
-      <tr class="iso-row${stable ? '' : ' radioactive'}" data-a="${rec.a}" ${stable ? '' : 'tabindex="0" title="Show decay chain"'}>
+      <tr class="iso-row${stable ? '' : ' radioactive'}" data-a="${rec.a}" ${stable ? '' : `tabindex="0" title="${L('showChain', 'Show decay chain')}"`}>
         <td class="nuc">${nuclideName(el.number, rec.a)}${isomers}</td>
         <td>${rec.a - el.number}</td>
         <td>${halfLifeText(rec)}</td>
@@ -266,25 +288,25 @@
     const abundant = [...list].filter((r) => r.ab !== null).sort((x, y) => y.ab - x.ab)[0];
 
     const facts = [];
-    if (abundant) facts.push(`most abundant ${nuclideName(el.number, abundant.a)} (${abundant.ab}%)`);
-    if (longest) facts.push(`longest-lived radioisotope ${nuclideName(el.number, longest.a)} (${halfLifeText(longest)})`);
-    if (!stable.length) facts.push('no stable isotopes');
+    if (abundant) facts.push(`${L('mostAbundant', 'most abundant')} ${nuclideName(el.number, abundant.a)} (${abundant.ab}%)`);
+    if (longest) facts.push(`${L('longestLived', 'longest-lived radioisotope')} ${nuclideName(el.number, longest.a)} (${halfLifeText(longest)})`);
+    if (!stable.length) facts.push(L('noStable', 'no stable isotopes'));
 
     return `
       <section class="iso-section">
-        <h3>Isotopes <span class="iso-count">${list.length} known · ${stable.length} stable · ${radio.length} radioactive</span></h3>
+        <h3>${L('isotopes', 'Isotopes')} <span class="iso-count">${list.length} ${L('known', 'known')} · ${stable.length} ${L('stableCount', 'stable')} · ${radio.length} ${L('radioactiveCount', 'radioactive')}</span></h3>
         ${facts.length ? `<p class="iso-facts">${facts.join(' · ')}</p>` : ''}
-        <p class="iso-hint">Click a radioactive isotope to trace its decay chain.</p>
+        <p class="iso-hint">${L('isoHint', 'Click a radioactive isotope to trace its decay chain.')}</p>
         <div class="iso-scroll">
           <table class="iso-table">
             <thead><tr>
-              <th>Nuclide</th><th>N</th><th>Half-life</th><th>Abundance</th>
-              <th>Decay modes</th><th>Spin</th><th>Mass (u)</th><th>Found</th>
+              <th>${L('thNuclide', 'Nuclide')}</th><th>N</th><th>${L('thHalfLife', 'Half-life')}</th><th>${L('thAbundance', 'Abundance')}</th>
+              <th>${L('thDecay', 'Decay modes')}</th><th>${L('thSpin', 'Spin')}</th><th>${L('thMass', 'Mass (u)')}</th><th>${L('thFound', 'Found')}</th>
             </tr></thead>
             <tbody>${list.map((r) => isoRow(el, r)).join('')}</tbody>
           </table>
         </div>
-        <p class="iso-src">Isotope data: NUBASE2020 evaluation (Kondev et&nbsp;al., Chin. Phys. C45, 030001). ≈ marks values estimated from systematics.</p>
+        <p class="iso-src">${L('isoSrc', 'Isotope data: NUBASE2020 evaluation (Kondev et&nbsp;al., Chin. Phys. C45, 030001). ≈ marks values estimated from systematics.')}</p>
       </section>`;
   }
 
@@ -322,30 +344,30 @@
       <div class="detail-head">
         <div class="detail-tile"><span class="sym">${el.symbol}</span><span class="num">${el.number}</span></div>
         <div>
-          <h2 id="detail-name">${el.name}</h2>
-          <span class="cat-chip"><span class="swatch"></span>${catLabel(el.category_detail)}</span>
+          <h2 id="detail-name">${elName(el)}</h2>
+          <span class="cat-chip"><span class="swatch"></span>${(LOC && LOC.categoriesDetail && LOC.categoriesDetail[el.category_detail]) || catLabel(el.category_detail) || el.category_detail}</span>
         </div>
       </div>
-      <p class="detail-summary">${el.summary}</p>
+      <p class="detail-summary">${elSummary(el)}</p>
       <div class="props">
-        ${prop('Atomic mass (u)', el.atomic_mass)}
-        ${prop('Phase at STP', el.phase)}
-        ${prop('Group · Period · Block', `${el.group} · ${el.period} · ${el.block}`)}
+        ${prop(L('atomicMass', 'Atomic mass (u)'), el.atomic_mass)}
+        ${prop(L('phase', 'Phase at STP'), phaseLabel(el.phase))}
+        ${prop(L('gpb', 'Group · Period · Block'), `${el.group} · ${el.period} · ${el.block}`)}
         ${prop(densityLabel(el), fmtNum(el.density))}
-        ${prop('Melting point', kelvin(el.melt))}
-        ${prop('Boiling point', kelvin(el.boil))}
-        ${prop('Electronegativity (Pauling)', fmtNum(el.electronegativity_pauling))}
-        ${prop('Electron affinity (kJ/mol)', fmtNum(el.electron_affinity))}
-        ${prop('1st ionization energy (kJ/mol)', fmtNum(el.first_ionization))}
-        ${prop('Molar heat (J/mol·K)', fmtNum(el.molar_heat))}
-        ${prop('Appearance', el.appearance ?? '—')}
-        ${prop('Discovered by', el.discovered_by ?? '—')}
-        ${prop('Named by', el.named_by ?? '—')}
-        ${prop('Electron configuration', fmtConfig(el.electron_configuration_semantic), true)}
-        ${prop('Electron shells', `<span class="shells">${shells}</span>`, true)}
+        ${prop(L('melt', 'Melting point'), kelvin(el.melt))}
+        ${prop(L('boil', 'Boiling point'), kelvin(el.boil))}
+        ${prop(L('electronegativity', 'Electronegativity (Pauling)'), fmtNum(el.electronegativity_pauling))}
+        ${prop(L('electronAffinity', 'Electron affinity (kJ/mol)'), fmtNum(el.electron_affinity))}
+        ${prop(L('ionization', '1st ionization energy (kJ/mol)'), fmtNum(el.first_ionization))}
+        ${prop(L('molarHeat', 'Molar heat (J/mol·K)'), fmtNum(el.molar_heat))}
+        ${prop(L('appearance', 'Appearance'), el.appearance ?? '—')}
+        ${prop(L('discoveredBy', 'Discovered by'), el.discovered_by ?? '—')}
+        ${prop(L('namedBy', 'Named by'), el.named_by ?? '—')}
+        ${prop(L('electronConfig', 'Electron configuration'), fmtConfig(el.electron_configuration_semantic), true)}
+        ${prop(L('shellsLabel', 'Electron shells'), `<span class="shells">${shells}</span>`, true)}
       </div>
       ${isotopesHTML(el)}
-      <div class="detail-src">Source: <a href="${el.source}" target="_blank" rel="noopener">Wikipedia — ${el.name}</a></div>`;
+      <div class="detail-src">${L('source', 'Source')}: <a href="${elSource(el).url}" target="_blank" rel="noopener">${elSource(el).label}</a></div>`;
 
     document.getElementById('prev-el').disabled = number <= 1;
     document.getElementById('next-el').disabled = number >= DB.length;
