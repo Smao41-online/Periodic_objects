@@ -26,6 +26,15 @@
 
   --stable: #0ca30c;
   --stable-ink: #006300;
+
+  /* decay-energy coding: α yellow, β blue, γ red, nucleon gray, stable white */
+  --dk-a: #eda100;
+  --dk-b: #2a78d6;
+  --dk-g: #e34948;
+  --dk-n: #898781;
+  --dk-sf: #52514e;
+  --dk-stable-bg: #ffffff;
+  --dk-stable-ink: #0b0b0b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +57,12 @@
     --cat-noble-gas: #9085e9;
     --cat-actinide: #6d5fc9;
     --stable-ink: #0ca30c;
+    --dk-a: #c98500;
+    --dk-b: #3987e5;
+    --dk-g: #e66767;
+    --dk-sf: #c3c2b7;
+    --dk-stable-bg: #f2f1ec;
+    --dk-stable-ink: #0b0b0b;
   }
 }
 :root[data-theme="light"] {
@@ -59,6 +74,8 @@
   --cat-transition-metal: #2a78d6; --cat-post-transition-metal: #1baf7a;
   --cat-metalloid: #eda100; --cat-noble-gas: #4a3aa7; --cat-actinide: #9085e9;
   --stable: #0ca30c; --stable-ink: #006300;
+  --dk-a: #eda100; --dk-b: #2a78d6; --dk-g: #e34948; --dk-sf: #52514e;
+  --dk-stable-bg: #ffffff; --dk-stable-ink: #0b0b0b;
 }
 :root[data-theme="dark"] {
   --surface-1: #1a1a19; --page: #0d0d0d;
@@ -69,6 +86,8 @@
   --cat-transition-metal: #3987e5; --cat-post-transition-metal: #199e70;
   --cat-metalloid: #c98500; --cat-noble-gas: #9085e9; --cat-actinide: #6d5fc9;
   --stable: #0ca30c; --stable-ink: #0ca30c;
+  --dk-a: #c98500; --dk-b: #3987e5; --dk-g: #e66767; --dk-sf: #c3c2b7;
+  --dk-stable-bg: #f2f1ec; --dk-stable-ink: #0b0b0b;
 }
 
 * { box-sizing: border-box; }
@@ -345,6 +364,60 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 .chain.big .chain-arrow { font-size: 0.85rem; }
 
 .nuclide-foot { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+/* decay-energy pill coloring (α yellow, β blue, γ red, n/p gray, stable white) */
+.chain-pill.dk-a { background: color-mix(in srgb, var(--dk-a) 28%, var(--surface-1)); border-color: var(--dk-a); }
+.chain-pill.dk-b { background: color-mix(in srgb, var(--dk-b) 26%, var(--surface-1)); border-color: var(--dk-b); }
+.chain-pill.dk-g { background: color-mix(in srgb, var(--dk-g) 26%, var(--surface-1)); border-color: var(--dk-g); }
+.chain-pill.dk-n { background: color-mix(in srgb, var(--dk-n) 26%, var(--surface-1)); border-color: var(--dk-n); }
+.chain-pill.dk-sf { border-color: var(--dk-sf); }
+.chain-pill.dk-stable {
+  background: var(--dk-stable-bg); color: var(--dk-stable-ink);
+}
+.chain-pill.dk-stable small { color: var(--stable-ink); font-weight: 600; }
+
+/* color legend */
+.dk-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 10px; }
+.dk-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--text-secondary); }
+.dk-swatch {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 5px;
+  font-size: 0.62rem; font-weight: 700; color: var(--text-primary);
+  border: 1px solid var(--hairline);
+}
+.dk-swatch.dk-a { background: color-mix(in srgb, var(--dk-a) 28%, var(--surface-1)); border-color: var(--dk-a); }
+.dk-swatch.dk-b { background: color-mix(in srgb, var(--dk-b) 26%, var(--surface-1)); border-color: var(--dk-b); }
+.dk-swatch.dk-g { background: color-mix(in srgb, var(--dk-g) 26%, var(--surface-1)); border-color: var(--dk-g); }
+.dk-swatch.dk-n { background: color-mix(in srgb, var(--dk-n) 26%, var(--surface-1)); border-color: var(--dk-n); }
+.dk-swatch.dk-stable { background: var(--dk-stable-bg); color: var(--dk-stable-ink); border-color: var(--stable); }
+.dk-swatch.dk-sf { border-style: dashed; border-color: var(--dk-sf); }
+
+/* branch-arm weight: connector thickness + emphasis mirror intensity */
+.decay-tree li.w-main::before, .decay-tree li.w-main::after { border-width: 0 0 3px 3px; }
+.decay-tree li.w-main::after { border-width: 0 0 0 3px; }
+.decay-tree li.w-min { opacity: 0.78; }
+.decay-tree li.w-min::before, .decay-tree li.w-min::after { border-style: dashed; }
+.tree-node.w-min .decay-chip { border-style: dashed; }
+.tree-node.w-main .decay-chip { font-weight: 600; }
+
+/* Σ half-lives to stability */
+.sum-chip {
+  font-size: 0.66rem; color: var(--stable-ink);
+  border: 1px dashed var(--stable); border-radius: 999px; padding: 2px 8px;
+  white-space: nowrap; cursor: help;
+}
+
+/* tree header with threshold selector */
+.tree-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tree-threshold {
+  font-size: 0.7rem; color: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tree-threshold select {
+  font: inherit; font-size: 0.74rem; color: var(--text-primary);
+  background: var(--surface-1); border: 1px solid var(--hairline);
+  border-radius: 6px; padding: 3px 6px;
+}
 
 /* Branching decay tree in the nuclide pop-up */
 .tree-note { margin: -4px 0 10px; font-size: 0.7rem; color: var(--text-muted); }

@@ -295,7 +295,7 @@
   function chainPill(z, a, rec, extraClass) {
     const stable = rec && rec.h === 'stable';
     const known = !!rec;
-    return `<span class="chain-pill${stable ? ' stable' : ''}${known ? ' clickable' : ''}${extraClass || ''}"
+    return `<span class="chain-pill${stable ? ' stable' : ''}${decayClass(rec)}${known ? ' clickable' : ''}${extraClass || ''}"
       ${known ? `data-z="${z}" data-a="${a}" role="button" tabindex="0" title="${L('nuclideDetail', 'Show nuclide details')}"` : ''}>
       <b>${nuclideName(z, a)}</b>
       <small>${rec ? halfLifeText(rec) : '?'}</small>
@@ -382,38 +382,81 @@
 
   // ---- branching decay tree ---------------------------------------------------
 
-  const BRANCH_MIN = 1;       // % — smaller branches stay visible per-nuclide
-  const TREE_MAX_NODES = 80;  // safety cap for pathological cases
+  let treeThreshold = 1;      // % — user-adjustable via the pop-up control
+  const TREE_MAX_NODES = 120; // safety cap for pathological cases
+
+  // Decay-energy color class from the dominant decay mode:
+  // α yellow, β blue, γ/IT red, nucleon emission gray, stable white.
+  function decayClass(rec) {
+    if (!rec) return '';
+    if (rec.h === 'stable') return ' dk-stable';
+    if (rec.h === 'p-unst') return ' dk-n';
+    const dm = [...rec.dm].sort((x, y) => (y[2] ?? -1) - (x[2] ?? -1));
+    const m = dm[0] && dm[0][0];
+    if (!m) return '';
+    if (m === 'A' || /^\d/.test(m)) return ' dk-a';               // α & cluster emission
+    if (m === 'IT') return ' dk-g';                               // γ transition
+    if (m === 'SF') return ' dk-sf';
+    if (m.startsWith('B') || m.startsWith('EC') || m === 'e+') return ' dk-b'; // β/ε (incl. β-delayed)
+    if (/^\d?[np]$/.test(m) || m === '2n' || m === '2p' || m === '3p') return ' dk-n';
+    return '';
+  }
 
   // All quantified branches above the threshold; if nothing qualifies
   // (e.g. every branch is "?"), fall back to the dominant one so the tree
   // still continues.
   function significantBranches(rec) {
     const dm = [...rec.dm].sort((x, y) => (y[2] ?? -1) - (x[2] ?? -1));
-    const sig = dm.filter((d) => d[2] !== null && d[2] >= BRANCH_MIN);
+    const sig = dm.filter((d) => d[2] !== null && d[2] >= treeThreshold);
     if (!sig.length && dm.length) sig.push(dm[0]);
     return sig;
   }
 
-  function buildDecayTree(z, a, state, path) {
+  // cum: running sum of half-lives from the first decay product down this
+  // path (the root's own half-life is excluded — it is the "waiting time
+  // before the chain starts", not part of the journey to stability).
+  function buildDecayTree(z, a, state, path, cum, isRoot) {
     state.count++;
     const rec = findIso(z, a);
-    const node = { z, a, rec, branches: [], term: null };
+    const node = { z, a, rec, branches: [], term: null, cum: cum || 0 };
     if (!rec) { node.term = 'edge'; return node; }
     if (rec.h === 'stable') { node.term = 'stable'; return node; }
     const key = z + '-' + a;
     if (path.has(key)) { node.term = 'loop'; return node; }
     if (state.count > TREE_MAX_NODES) { node.term = 'truncated'; return node; }
     path.add(key);
+    const childCum = (cum || 0) + (isRoot || !Number.isFinite(rec.hs) ? 0 : rec.hs);
     for (const d of significantBranches(rec)) {
       const delta = modeDelta(d[0]);
       if (delta === null) node.branches.push({ via: d, child: { term: 'fission' } });
       else if (delta === undefined) node.branches.push({ via: d, child: { term: 'unknown' } });
-      else node.branches.push({ via: d, child: buildDecayTree(z + delta[0], a + delta[1], state, path) });
+      else node.branches.push({ via: d, child: buildDecayTree(z + delta[0], a + delta[1], state, path, childCum, false) });
     }
     path.delete(key);
     return node;
   }
+
+  // Human-readable duration from seconds (order-of-magnitude guide).
+  const YEAR = 31556926;
+  function humanizeS(s) {
+    if (!Number.isFinite(s) || s <= 0) return null;
+    const units = [
+      [1e-9, 1e-12, 'ps'], [1e-6, 1e-9, 'ns'], [1e-3, 1e-6, 'µs'], [1, 1e-3, 'ms'],
+      [60, 1, 's'], [3600, 60, 'min'], [86400, 3600, 'h'], [YEAR, 86400, 'd'],
+      [YEAR * 1e3, YEAR, 'y'], [YEAR * 1e6, YEAR * 1e3, 'ky'],
+      [YEAR * 1e9, YEAR * 1e6, 'My'], [Infinity, YEAR * 1e9, 'Gy'],
+    ];
+    for (const [limit, div, unit] of units) {
+      if (s < limit) {
+        const v = s / div;
+        return (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toPrecision(3)) + ' ' + unit;
+      }
+    }
+    return null;
+  }
+
+  // Visual weight of a branch arm by its intensity.
+  const weightClass = (v) => (v === null || v >= 50 ? 'w-main' : v >= 10 ? 'w-mid' : 'w-min');
 
   function treePill(node) {
     if (node.term === 'fission') {
@@ -426,6 +469,14 @@
     return chainPill(node.z, node.a, node.rec) + suffix;
   }
 
+  // Σ of half-lives badge shown beside stable leaves.
+  function sumBadge(node) {
+    if (node.term !== 'stable') return '';
+    const t = humanizeS(node.cum);
+    if (!t) return '';
+    return `<span class="sum-chip" title="${L('sumTitle', 'Sum of half-lives from the first decay product down this path — a rough order-of-magnitude guide, not an exact duration.')}">Σt½ ≈ ${t}</span>`;
+  }
+
   // Linear runs stack vertically at one indent level; the tree only nests
   // deeper at real branch points, so long chains don't drift off-screen.
   function treeChildren(node) {
@@ -435,31 +486,55 @@
       let tail = null;
       for (;;) {
         rows += `
-          <div class="tree-node">
+          <div class="tree-node ${weightClass(cur.via[2])}">
             <span class="decay-chip">${branchText(cur.via)}</span>
             <span class="tree-arrow">→</span>
             ${treePill(cur.child)}
+            ${sumBadge(cur.child)}
           </div>`;
         const kids = cur.child.branches;
         if (!kids || kids.length === 0) break;
         if (kids.length > 1) { tail = cur.child; break; }
         cur = kids[0];
       }
-      return `<li><div class="tree-run">${rows}</div>${tail ? `<ul>${treeChildren(tail)}</ul>` : ''}</li>`;
+      return `<li class="${weightClass(b.via[2])}"><div class="tree-run">${rows}</div>${tail ? `<ul>${treeChildren(tail)}</ul>` : ''}</li>`;
     }).join('');
   }
 
+  const THRESHOLDS = [0.1, 1, 5, 10];
+
+  function colorLegendHTML() {
+    const items = [
+      ['dk-a', 'α', L('legendAlpha', 'α decay')],
+      ['dk-b', 'β', L('legendBeta', 'β decay (β⁻/β⁺/ε)')],
+      ['dk-g', 'γ', L('legendGamma', 'γ / isomeric transition')],
+      ['dk-n', 'n', L('legendNucleon', 'n/p emission')],
+      ['dk-stable', 'S', L('legendStable', 'stable')],
+      ['dk-sf', 'SF', L('legendSF', 'spontaneous fission')],
+    ];
+    return `<div class="dk-legend">${items.map(([cls, glyph, label]) =>
+      `<span class="dk-legend-item"><span class="dk-swatch ${cls}">${glyph}</span>${label}</span>`).join('')}</div>`;
+  }
+
   function decayTreeHTML(z, a) {
-    const root = buildDecayTree(z, a, { count: 0 }, new Set());
+    const root = buildDecayTree(z, a, { count: 0 }, new Set(), 0, true);
     if (!root.branches.length) return '';
     let note = '';
     const { steps } = decayChain(z, a);
     if (z >= 81 && steps.some((s) => s.via && s.via[0] === 'A')) {
       note = `<div class="chain-note">${L('memberOf', 'Member of the')} ${seriesName(a)}.</div>`;
     }
+    const options = THRESHOLDS.map((t) =>
+      `<option value="${t}" ${t === treeThreshold ? 'selected' : ''}>≥ ${t} %</option>`).join('');
     return `
-      <h4>${L('decayChainTitle', 'Decay chain')}</h4>
-      <p class="tree-note">${L('treeNote', 'Branching tree — every decay branch with intensity ≥ 1% is followed; open a nuclide for its minor branches.')}</p>
+      <div class="tree-head">
+        <h4>${L('decayChainTitle', 'Decay chain')}</h4>
+        <label class="tree-threshold">${L('thresholdLabel', 'Branch threshold')}
+          <select id="tree-threshold">${options}</select>
+        </label>
+      </div>
+      <p class="tree-note">${L('treeNote2', 'Branching tree — every decay branch above the chosen intensity is followed; arm weight mirrors intensity. Minor branches stay listed per nuclide under decay products.')}</p>
+      ${colorLegendHTML()}
       <div class="decay-tree">
         ${treePill(root)}
         <ul>${treeChildren(root)}</ul>
@@ -534,6 +609,11 @@
     nuclideBody.querySelector('#open-element').addEventListener('click', () => {
       nuclideDialog.close();
       openDetail(z);
+    });
+    const thresholdSel = nuclideBody.querySelector('#tree-threshold');
+    if (thresholdSel) thresholdSel.addEventListener('change', () => {
+      treeThreshold = Number(thresholdSel.value);
+      openNuclide(z, a);
     });
 
     if (!nuclideDialog.open) nuclideDialog.showModal();

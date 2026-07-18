@@ -46,9 +46,14 @@ python3 -m http.server 8000
   product) to open an enlarged pop-up with its full record — protons/neutrons/
   nucleons, mass, half-life, spin, abundance, discovery year, isomer count,
   every decay branch with its daughter nuclide, and a **branching decay tree**:
-  every branch with intensity ≥ 1% is followed (e.g. ²¹²Bi forks 64% β⁻ / 36% α,
-  both arms converging on stable ²⁰⁸Pb), linear runs stack vertically and the
-  tree only nests at real branch points. Every nuclide in the tree is clickable.
+  every branch above a user-selectable intensity threshold (0.1/1/5/10 %) is
+  followed (e.g. ²¹²Bi forks 64% β⁻ / 36% α, both arms converging on stable
+  ²⁰⁸Pb). Arm weight mirrors branch intensity, stable leaves carry a Σt½ badge
+  (sum of half-lives down that path), linear runs stack vertically and the tree
+  only nests at real branch points. Every nuclide in the tree is clickable.
+- **Decay-energy color coding**: nuclide pills are colored by their dominant
+  decay mode — α yellow, β (β⁻/β⁺/ε) blue, γ/IT red, nucleon emission gray,
+  stable white — with a legend above every tree, in both themes.
 - **Language toggle**: EN/CS switch in the header changes the whole UI —
   element names, summaries, labels, categories — live, without reloading;
   the choice is remembered (localStorage). `index.html` defaults to English,
