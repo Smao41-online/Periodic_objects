@@ -15,3 +15,15 @@ node parse_nubase.js nubase_3.mas20.txt ../data/isotopes.js
 
 (`transform_elements.js` expects the JSON at `./PeriodicTable.json`; adjust the
 require path or rename when re-running.)
+
+## Building the legacy Windows file
+
+`build_win.js` regenerates `../PSChP_Win.html` — the app JS transpiled to ES5
+with CSS `color-mix()`/`min()` fallbacks, inlined into one self-contained file.
+It needs Babel available; point `BABELDIR` at a node_modules holding
+`@babel/core` and `@babel/preset-env`:
+
+```bash
+npm install --no-save --prefix ./babelenv @babel/core @babel/preset-env
+BABELDIR="$PWD/babelenv/node_modules" node build_win.js
+```

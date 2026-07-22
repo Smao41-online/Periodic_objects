@@ -11,6 +11,77 @@
   const byNumber = new Map(DB.map((el) => [el.number, el]));
   const zBySymbol = new Map(DB.map((el) => [el.symbol, el.number]));
 
+  // ---- legacy-browser color compatibility -----------------------------------
+  // color-mix() (Chrome 111+) drives every tinted surface. On older browsers it
+  // is unsupported, so those declarations are dropped and elements render with
+  // no fill. We detect that and paint the per-element dynamic tints in JS from a
+  // precomputed palette (static tints are handled by a CSS @supports fallback).
+  const COMPAT = !(window.CSS && CSS.supports &&
+      CSS.supports('background', 'color-mix(in srgb, red 50%, white)')) ||
+      /[?&]compat=1/.test(location.search);
+  const CAT_HEX = {
+    light: {
+      'alkali metal': '#e34948', 'alkaline earth metal': '#eb6834',
+      'transition metal': '#2a78d6', 'post-transition metal': '#1baf7a',
+      metalloid: '#eda100', 'reactive nonmetal': '#008300',
+      'noble gas': '#4a3aa7', lanthanide: '#e87ba4', actinide: '#9085e9', unknown: '#898781',
+    },
+    dark: {
+      'alkali metal': '#e66767', 'alkaline earth metal': '#d95926',
+      'transition metal': '#3987e5', 'post-transition metal': '#199e70',
+      metalloid: '#c98500', 'reactive nonmetal': '#008300',
+      'noble gas': '#9085e9', lanthanide: '#e87ba4', actinide: '#6d5fc9', unknown: '#898781',
+    },
+  };
+  const SURFACE = { light: '#fcfcfb', dark: '#1a1a19' };
+  const TINT = { light: 0.16, dark: 0.22 };
+
+  function curTheme() {
+    const t = document.documentElement.getAttribute('data-theme');
+    if (t) return t;
+    if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    return 'light';
+  }
+  function hx(h) {
+    h = h.replace('#', '');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function mix(a, b, t) { // sRGB gamma-space linear mix, matching color-mix(in srgb)
+    const A = hx(a), B = hx(b);
+    let o = '#';
+    for (let i = 0; i < 3; i++) {
+      const v = Math.round(A[i] * t + B[i] * (1 - t)).toString(16);
+      o += (v.length < 2 ? '0' : '') + v;
+    }
+    return o;
+  }
+  const catHex = (cat) => CAT_HEX[curTheme()][cat] || CAT_HEX[curTheme()].unknown;
+
+  function paintTiles() {
+    if (!COMPAT) return;
+    const t = curTheme();
+    tableEl.querySelectorAll('.el').forEach((node) => {
+      const el = byNumber.get(Number(node.dataset.number));
+      const c = catHex(el.category);
+      node.style.backgroundColor = mix(c, SURFACE[t], TINT[t]);
+      node.style.boxShadow = 'inset 0 -3px 0 ' + c;
+    });
+  }
+  function paintLegend() {
+    if (!COMPAT) return;
+    const surf = SURFACE[curTheme()];
+    legendEl.querySelectorAll('.legend-chip').forEach((chip) => {
+      const c = CAT_HEX[curTheme()][chip.dataset.cat] || surf;
+      chip.style.background = chip.getAttribute('aria-pressed') === 'true' ? mix(c, surf, 0.2) : surf;
+    });
+  }
+  function paintScope(scope, cat) {
+    if (!COMPAT) return;
+    const surf = SURFACE[curTheme()], c = catHex(cat);
+    scope.querySelectorAll('.detail-tile').forEach((x) => { x.style.backgroundColor = mix(c, surf, 0.24); });
+    scope.querySelectorAll('.ab-bar').forEach((x) => { x.style.backgroundColor = mix(c, surf, 0.65); });
+  }
+
   // ---- localization --------------------------------------------------------
 
   // English page strings live here; other languages provide them via their
@@ -105,6 +176,7 @@
     }
 
     tableEl.appendChild(frag);
+    paintTiles();
     document.getElementById('count-note').textContent =
       `${DB.length} ${L('elements', 'elements')} · ${new Set(DB.map((e) => e.category)).size} ${L('categories', 'categories')}`;
   }
@@ -118,6 +190,7 @@
       chip.type = 'button';
       chip.className = 'legend-chip';
       chip.style.setProperty('--chip-color', `var(${catVar(cat)})`);
+      chip.dataset.cat = cat;
       chip.setAttribute('aria-pressed', String(activeCategory === cat));
       chip.innerHTML = `<span class="swatch"></span>${catLabel(cat)}`;
       chip.addEventListener('click', () => {
@@ -125,9 +198,11 @@
         legendEl.querySelectorAll('.legend-chip').forEach((c) =>
           c.setAttribute('aria-pressed', String(c === chip && activeCategory !== null)));
         applyFilter();
+        paintLegend();
       });
       legendEl.appendChild(chip);
     }
+    paintLegend();
   }
 
   function matches(el, query) {
@@ -378,6 +453,10 @@
     tr.className = 'chain-row';
     tr.innerHTML = `<td colspan="8">${chainHTML(openNumber, Number(row.dataset.a))}</td>`;
     row.after(tr);
+    if (COMPAT) {
+      const el = byNumber.get(openNumber);
+      tr.querySelector('td').style.backgroundColor = mix(catHex(el.category), SURFACE[curTheme()], 0.05);
+    }
   }
 
   // ---- branching decay tree ---------------------------------------------------
@@ -606,6 +685,7 @@
         <button type="button" class="nav-btn" id="open-element">${L('openElement', 'Open element card')} — ${elName(el)}</button>
       </div>`;
 
+    paintScope(nuclideBody, el.category);
     nuclideBody.querySelector('#open-element').addEventListener('click', () => {
       nuclideDialog.close();
       openDetail(z);
@@ -660,6 +740,7 @@
       ${isotopesHTML(el)}
       <div class="detail-src">${L('source', 'Source')}: <a href="${elSource(el).url}" target="_blank" rel="noopener">${elSource(el).label}</a></div>`;
 
+    paintScope(detailBody, el.category);
     document.getElementById('prev-el').disabled = number <= 1;
     document.getElementById('next-el').disabled = number >= DB.length;
 

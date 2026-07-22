@@ -13,8 +13,9 @@ is an object in a local database.
 | `css/style.css` | Theme-aware styles (light + dark) with a colorblind-validated category palette. |
 | `index.html` | The page shell (English). |
 | `PSChP.html` | Czech entry page — *Periodická soustava chemických prvků*. Same code and databases; defaults to Czech. |
+| `PSChP_Win.html` | Standalone Czech build for **older Windows browsers**: a single self-contained file with the app JS transpiled to ES5 and `color-mix()`/`min()` fallbacks, so it runs on older Chrome/Edge where the modern files show blank tiles or a blank page. |
 | `data/locale_cs.js` | Czech localization layer: UI strings, category/phase names, Czech element names + summaries. Locales register in `window.LOCALES`; the EN/CS toggle switches them live. |
-| `rawdata/` | Backup of the raw source datasets (Periodic-Table-JSON, NUBASE2020) and the scripts that regenerate the databases from them. |
+| `rawdata/` | Backup of the raw source datasets (Periodic-Table-JSON, NUBASE2020) and the scripts that regenerate the databases + build `PSChP_Win.html` (`build_win.js`). |
 
 No build step and no dependencies — open `index.html` in any modern browser,
 or serve the folder statically:
@@ -52,8 +53,12 @@ python3 -m http.server 8000
   (sum of half-lives down that path), linear runs stack vertically and the tree
   only nests at real branch points. Every nuclide in the tree is clickable.
 - **Decay-energy color coding**: nuclide pills are colored by their dominant
-  decay mode — α yellow, β (β⁻/β⁺/ε) blue, γ/IT red, nucleon emission gray,
+  decay mode — α bright gold, β (β⁻/β⁺/ε) blue, γ/IT red, nucleon emission gray,
   stable white — with a legend above every tree, in both themes.
+- **Older-browser support**: the modern pages self-heal on older engines — a
+  CSS `@supports` fallback plus a feature-detected JS paint path reproduce the
+  `color-mix()` tints. For browsers that also choke on modern JS syntax, the
+  standalone `PSChP_Win.html` ships ES5-transpiled code (see `rawdata/build_win.js`).
 - **Language toggle**: EN/CS switch in the header changes the whole UI —
   element names, summaries, labels, categories — live, without reloading;
   the choice is remembered (localStorage). `index.html` defaults to English,

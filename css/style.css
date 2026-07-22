@@ -28,7 +28,7 @@
   --stable-ink: #006300;
 
   /* decay-energy coding: α yellow, β blue, γ red, nucleon gray, stable white */
-  --dk-a: #eda100;
+  --dk-a: #ffc400;
   --dk-b: #2a78d6;
   --dk-g: #e34948;
   --dk-n: #898781;
@@ -57,7 +57,7 @@
     --cat-noble-gas: #9085e9;
     --cat-actinide: #6d5fc9;
     --stable-ink: #0ca30c;
-    --dk-a: #c98500;
+    --dk-a: #ffc21f;
     --dk-b: #3987e5;
     --dk-g: #e66767;
     --dk-sf: #c3c2b7;
@@ -74,7 +74,7 @@
   --cat-transition-metal: #2a78d6; --cat-post-transition-metal: #1baf7a;
   --cat-metalloid: #eda100; --cat-noble-gas: #4a3aa7; --cat-actinide: #9085e9;
   --stable: #0ca30c; --stable-ink: #006300;
-  --dk-a: #eda100; --dk-b: #2a78d6; --dk-g: #e34948; --dk-sf: #52514e;
+  --dk-a: #ffc400; --dk-b: #2a78d6; --dk-g: #e34948; --dk-sf: #52514e;
   --dk-stable-bg: #ffffff; --dk-stable-ink: #0b0b0b;
 }
 :root[data-theme="dark"] {
@@ -86,7 +86,7 @@
   --cat-transition-metal: #3987e5; --cat-post-transition-metal: #199e70;
   --cat-metalloid: #c98500; --cat-noble-gas: #9085e9; --cat-actinide: #6d5fc9;
   --stable: #0ca30c; --stable-ink: #0ca30c;
-  --dk-a: #c98500; --dk-b: #3987e5; --dk-g: #e66767; --dk-sf: #c3c2b7;
+  --dk-a: #ffc21f; --dk-b: #3987e5; --dk-g: #e66767; --dk-sf: #c3c2b7;
   --dk-stable-bg: #f2f1ec; --dk-stable-ink: #0b0b0b;
 }
 
@@ -366,7 +366,7 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 .nuclide-foot { margin-top: 16px; display: flex; justify-content: flex-end; }
 
 /* decay-energy pill coloring (α yellow, β blue, γ red, n/p gray, stable white) */
-.chain-pill.dk-a { background: color-mix(in srgb, var(--dk-a) 28%, var(--surface-1)); border-color: var(--dk-a); }
+.chain-pill.dk-a { background: color-mix(in srgb, var(--dk-a) 42%, var(--surface-1)); border-color: var(--dk-a); }
 .chain-pill.dk-b { background: color-mix(in srgb, var(--dk-b) 26%, var(--surface-1)); border-color: var(--dk-b); }
 .chain-pill.dk-g { background: color-mix(in srgb, var(--dk-g) 26%, var(--surface-1)); border-color: var(--dk-g); }
 .chain-pill.dk-n { background: color-mix(in srgb, var(--dk-n) 26%, var(--surface-1)); border-color: var(--dk-n); }
@@ -385,7 +385,7 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
   font-size: 0.62rem; font-weight: 700; color: var(--text-primary);
   border: 1px solid var(--hairline);
 }
-.dk-swatch.dk-a { background: color-mix(in srgb, var(--dk-a) 28%, var(--surface-1)); border-color: var(--dk-a); }
+.dk-swatch.dk-a { background: color-mix(in srgb, var(--dk-a) 42%, var(--surface-1)); border-color: var(--dk-a); }
 .dk-swatch.dk-b { background: color-mix(in srgb, var(--dk-b) 26%, var(--surface-1)); border-color: var(--dk-b); }
 .dk-swatch.dk-g { background: color-mix(in srgb, var(--dk-g) 26%, var(--surface-1)); border-color: var(--dk-g); }
 .dk-swatch.dk-n { background: color-mix(in srgb, var(--dk-n) 26%, var(--surface-1)); border-color: var(--dk-n); }
@@ -470,4 +470,43 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 @media (max-width: 720px) {
   .el .mass { display: none; }
   .ptable { min-width: 940px; grid-template-columns: repeat(18, minmax(48px, 1fr)); grid-auto-rows: minmax(54px, auto); }
+}
+
+
+/* ---- Legacy-browser fallback: static colors when color-mix() is unsupported.
+   Modern browsers ignore this block; older ones (pre-Chrome 111) use these
+   precomputed values. Per-element dynamic tints are painted by JS (see
+   applyLegacyColors in app.js). ---- */
+@supports not (background: color-mix(in srgb, red 50%, white)) {
+  .lang-toggle button[aria-pressed="true"] { background: #d6e4f4; }
+  .chain-pill.dk-a, .dk-swatch.dk-a { background: #fde492; }
+  .chain-pill.dk-b, .dk-swatch.dk-b { background: #c5daf1; }
+  .chain-pill.dk-g, .dk-swatch.dk-g { background: #f6cdcc; }
+  .chain-pill.dk-n, .dk-swatch.dk-n { background: #dededb; }
+  /* hover feedback without color-mix */
+  .el:hover, .chain-pill.clickable:hover, .iso-row.radioactive:hover td { filter: brightness(1.08); }
+
+  @media (prefers-color-scheme: dark) {
+    .lang-toggle button[aria-pressed="true"] { background: #202e3e; }
+    .chain-pill.dk-a, .dk-swatch.dk-a { background: #7a611c; }
+  .chain-pill.dk-b, .dk-swatch.dk-b { background: #22364e; }
+  .chain-pill.dk-g, .dk-swatch.dk-g { background: #4f2e2d; }
+  .chain-pill.dk-n, .dk-swatch.dk-n { background: #373634; }
+  }
+  :root[data-theme="dark"] {
+    /* placeholder so the selector list is valid */
+    --legacy: 1;
+  }
+}
+@supports not (background: color-mix(in srgb, red 50%, white)) {
+  :root[data-theme="dark"] .lang-toggle button[aria-pressed="true"] { background: #202e3e; }
+  :root[data-theme="dark"] .chain-pill.dk-a, :root[data-theme="dark"] .dk-swatch.dk-a { background: #7a611c; }
+  :root[data-theme="dark"] .chain-pill.dk-b, :root[data-theme="dark"] .dk-swatch.dk-b { background: #22364e; }
+  :root[data-theme="dark"] .chain-pill.dk-g, :root[data-theme="dark"] .dk-swatch.dk-g { background: #4f2e2d; }
+  :root[data-theme="dark"] .chain-pill.dk-n, :root[data-theme="dark"] .dk-swatch.dk-n { background: #373634; }
+  :root[data-theme="light"] .lang-toggle button[aria-pressed="true"] { background: #d6e4f4; }
+  :root[data-theme="light"] .chain-pill.dk-a, :root[data-theme="light"] .dk-swatch.dk-a { background: #fde492; }
+  :root[data-theme="light"] .chain-pill.dk-b, :root[data-theme="light"] .dk-swatch.dk-b { background: #c5daf1; }
+  :root[data-theme="light"] .chain-pill.dk-g, :root[data-theme="light"] .dk-swatch.dk-g { background: #f6cdcc; }
+  :root[data-theme="light"] .chain-pill.dk-n, :root[data-theme="light"] .dk-swatch.dk-n { background: #dededb; }
 }
