@@ -357,6 +357,14 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 .decay-products { display: flex; flex-direction: column; gap: 6px; }
 .decay-product { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+/* decay energy (Q-value) */
+.q-val {
+  font-size: 0.7rem; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.iso-table .qval { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tree-node .q-val { color: var(--text-muted); }
+
 .chain-pill.clickable { cursor: pointer; }
 .chain-pill.clickable:hover, .chain-pill.clickable:focus-visible {
   border-color: var(--cat, var(--text-muted));
@@ -4893,6 +4901,9 @@ window.LOCALES.cs = {
     estimated: 'odhad',
     isomersLabel: 'Metastabilní izomery',
     openElement: 'Otevřít kartu prvku',
+    decayEnergy: 'Rozpadová energie (Q)',
+    thQ: 'Q (rozpad)',
+    qTitle: 'Rozpadová energie dominantní větve',
     atomicNumber: 'protonové číslo',
     elements: 'prvků',
     categories: 'kategorií',
@@ -5552,6 +5563,64 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       return r.a === a;
     });
   };
+
+  // Decay energy (Q-value) from atomic masses: Q = Δmass × 931494.10242 keV/u.
+  // Uses the atomic masses already in the dataset, so no extra data is needed.
+  var U_KEV = 931494.10242; // energy equivalent of 1 u, in keV
+  var M_HE4 = 4.002603254; // ⁴He atomic mass (u)
+  var M_H1 = 1.007825032; // ¹H atomic mass (u)
+  var M_N = 1.008664916; // neutron mass (u)
+  var TWO_ME_KEV = 1021.99791; // 2·mₑc² (u→keV), for β⁺
+
+  function qValueKeV(mode, z, a) {
+    var parent = findIso(z, a);
+    if (!parent || parent.m == null) return null;
+    var d = modeDelta(mode);
+    if (d === null || d === undefined) return null; // fission / unknown — no simple Q
+    var daughter = findIso(z + d[0], a + d[1]);
+    if (!daughter || daughter.m == null) return null;
+    var dm = parent.m - daughter.m;
+    switch (mode) {
+      case 'A':
+        return (dm - M_HE4) * U_KEV;
+      case 'B-':
+      case '2B-':
+        return dm * U_KEV;
+      case 'EC':
+      case 'EC+B+':
+        return dm * U_KEV;
+      case 'B+':
+      case 'e+':
+        return dm * U_KEV - TWO_ME_KEV;
+      case 'p':
+        return (dm - M_H1) * U_KEV;
+      case 'n':
+        return (dm - M_N) * U_KEV;
+      default:
+        {
+          var cl = mode.match(/^(\d+)([A-Z][a-z]?)/); // cluster: subtract the emitted nuclide
+          if (cl) {
+            var emitted = findIso(-d[0], -d[1]);
+            if (emitted && emitted.m != null) return (dm - emitted.m) * U_KEV;
+          }
+          return null; // compound/delayed modes (β⁻n, 2p, …) have no single Q here
+        }
+    }
+  }
+  function fmtQ(keV) {
+    if (keV == null || !isFinite(keV)) return null;
+    return Math.abs(keV) >= 1000 ? (keV / 1000).toFixed(3) + ' MeV' : keV.toFixed(1) + ' keV';
+  }
+
+  // Q of a nuclide's dominant decay branch (used for compact per-nuclide display).
+  function dominantQ(rec, z) {
+    if (!rec || rec.h === 'stable' || !rec.dm.length) return null;
+    var main = _toConsumableArray(rec.dm).sort(function (x, y) {
+      var _y$, _x$;
+      return ((_y$ = y[2]) !== null && _y$ !== void 0 ? _y$ : -1) - ((_x$ = x[2]) !== null && _x$ !== void 0 ? _x$ : -1);
+    })[0];
+    return main ? fmtQ(qValueKeV(main[0], z, rec.a)) : null;
+  }
   function branchText(_ref) {
     var _ref2 = _slicedToArray(_ref, 3),
       mode = _ref2[0],
@@ -5602,8 +5671,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
         break;
       }
       var dm = _toConsumableArray(rec.dm).sort(function (x, y) {
-        var _y$, _x$;
-        return ((_y$ = y[2]) !== null && _y$ !== void 0 ? _y$ : -1) - ((_x$ = x[2]) !== null && _x$ !== void 0 ? _x$ : -1);
+        var _y$2, _x$2;
+        return ((_y$2 = y[2]) !== null && _y$2 !== void 0 ? _y$2 : -1) - ((_x$2 = x[2]) !== null && _x$2 !== void 0 ? _x$2 : -1);
       });
       var main = dm[0];
       if (!main) {
@@ -5682,7 +5751,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       return "<span class=\"decay-chip\">".concat(branchText(d), "</span>");
     }).join('') || '—';
     var isomers = rec.isomers ? "<span class=\"isomer-badge\" title=\"".concat(rec.isomers, " ").concat(L('isomerTitle', 'known metastable isomer(s)'), "\">+").concat(rec.isomers, "m</span>") : '';
-    return "\n      <tr class=\"iso-row".concat(stable ? '' : ' radioactive', "\" data-a=\"").concat(rec.a, "\" ").concat(stable ? '' : "tabindex=\"0\" title=\"".concat(L('showChain', 'Show decay chain'), "\""), ">\n        <td class=\"nuc\">").concat(nuclideName(el.number, rec.a)).concat(isomers, "</td>\n        <td>").concat(rec.a - el.number, "</td>\n        <td>").concat(halfLifeText(rec), "</td>\n        <td class=\"ab\">").concat(abBar, "</td>\n        <td class=\"decays\">").concat(decays, "</td>\n        <td>").concat((_rec$jp = rec.jp) !== null && _rec$jp !== void 0 ? _rec$jp : '—', "</td>\n        <td class=\"mass\">").concat((_rec$m = rec.m) !== null && _rec$m !== void 0 ? _rec$m : '—', "</td>\n        <td>").concat((_rec$y = rec.y) !== null && _rec$y !== void 0 ? _rec$y : '—', "</td>\n      </tr>");
+    var q = stable ? '' : dominantQ(rec, el.number) || '—';
+    return "\n      <tr class=\"iso-row".concat(stable ? '' : ' radioactive', "\" data-a=\"").concat(rec.a, "\" ").concat(stable ? '' : "tabindex=\"0\" title=\"".concat(L('showChain', 'Show decay chain'), "\""), ">\n        <td class=\"nuc\">").concat(nuclideName(el.number, rec.a)).concat(isomers, "</td>\n        <td>").concat(rec.a - el.number, "</td>\n        <td>").concat(halfLifeText(rec), "</td>\n        <td class=\"ab\">").concat(abBar, "</td>\n        <td class=\"decays\">").concat(decays, "</td>\n        <td class=\"qval\">").concat(q, "</td>\n        <td>").concat((_rec$jp = rec.jp) !== null && _rec$jp !== void 0 ? _rec$jp : '—', "</td>\n        <td class=\"mass\">").concat((_rec$m = rec.m) !== null && _rec$m !== void 0 ? _rec$m : '—', "</td>\n        <td>").concat((_rec$y = rec.y) !== null && _rec$y !== void 0 ? _rec$y : '—', "</td>\n      </tr>");
   }
   function isotopesHTML(el) {
     var list = isotopesOf(el.number);
@@ -5707,7 +5777,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     if (abundant) facts.push("".concat(L('mostAbundant', 'most abundant'), " ").concat(nuclideName(el.number, abundant.a), " (").concat(abundant.ab, "%)"));
     if (longest) facts.push("".concat(L('longestLived', 'longest-lived radioisotope'), " ").concat(nuclideName(el.number, longest.a), " (").concat(halfLifeText(longest), ")"));
     if (!stable.length) facts.push(L('noStable', 'no stable isotopes'));
-    return "\n      <section class=\"iso-section\">\n        <h3>".concat(L('isotopes', 'Isotopes'), " <span class=\"iso-count\">").concat(list.length, " ").concat(L('known', 'known'), " \xB7 ").concat(stable.length, " ").concat(L('stableCount', 'stable'), " \xB7 ").concat(radio.length, " ").concat(L('radioactiveCount', 'radioactive'), "</span></h3>\n        ").concat(facts.length ? "<p class=\"iso-facts\">".concat(facts.join(' · '), "</p>") : '', "\n        <p class=\"iso-hint\">").concat(L('isoHint', 'Click a radioactive isotope to trace its decay chain; click any nuclide in a chain for its enlarged detail.'), "</p>\n        <div class=\"iso-scroll\">\n          <table class=\"iso-table\">\n            <thead><tr>\n              <th>").concat(L('thNuclide', 'Nuclide'), "</th><th>N</th><th>").concat(L('thHalfLife', 'Half-life'), "</th><th>").concat(L('thAbundance', 'Abundance'), "</th>\n              <th>").concat(L('thDecay', 'Decay modes'), "</th><th>").concat(L('thSpin', 'Spin'), "</th><th>").concat(L('thMass', 'Mass (u)'), "</th><th>").concat(L('thFound', 'Found'), "</th>\n            </tr></thead>\n            <tbody>").concat(list.map(function (r) {
+    return "\n      <section class=\"iso-section\">\n        <h3>".concat(L('isotopes', 'Isotopes'), " <span class=\"iso-count\">").concat(list.length, " ").concat(L('known', 'known'), " \xB7 ").concat(stable.length, " ").concat(L('stableCount', 'stable'), " \xB7 ").concat(radio.length, " ").concat(L('radioactiveCount', 'radioactive'), "</span></h3>\n        ").concat(facts.length ? "<p class=\"iso-facts\">".concat(facts.join(' · '), "</p>") : '', "\n        <p class=\"iso-hint\">").concat(L('isoHint', 'Click a radioactive isotope to trace its decay chain; click any nuclide in a chain for its enlarged detail.'), "</p>\n        <div class=\"iso-scroll\">\n          <table class=\"iso-table\">\n            <thead><tr>\n              <th>").concat(L('thNuclide', 'Nuclide'), "</th><th>N</th><th>").concat(L('thHalfLife', 'Half-life'), "</th><th>").concat(L('thAbundance', 'Abundance'), "</th>\n              <th>").concat(L('thDecay', 'Decay modes'), "</th><th title=\"").concat(L('qTitle', 'Decay energy of the dominant branch'), "\">").concat(L('thQ', 'Q (decay)'), "</th><th>").concat(L('thSpin', 'Spin'), "</th><th>").concat(L('thMass', 'Mass (u)'), "</th><th>").concat(L('thFound', 'Found'), "</th>\n            </tr></thead>\n            <tbody>").concat(list.map(function (r) {
       return isoRow(el, r);
     }).join(''), "</tbody>\n          </table>\n        </div>\n        <p class=\"iso-src\">").concat(L('isoSrc', 'Isotope data: NUBASE2020 evaluation (Kondev et&nbsp;al., Chin. Phys. C45, 030001). ≈ marks values estimated from systematics.'), "</p>\n      </section>");
   }
@@ -5719,7 +5789,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     }
     var tr = document.createElement('tr');
     tr.className = 'chain-row';
-    tr.innerHTML = "<td colspan=\"8\">".concat(chainHTML(openNumber, Number(row.dataset.a)), "</td>");
+    tr.innerHTML = "<td colspan=\"9\">".concat(chainHTML(openNumber, Number(row.dataset.a)), "</td>");
     row.after(tr);
     if (COMPAT) {
       var el = byNumber.get(openNumber);
@@ -5739,8 +5809,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     if (rec.h === 'stable') return ' dk-stable';
     if (rec.h === 'p-unst') return ' dk-n';
     var dm = _toConsumableArray(rec.dm).sort(function (x, y) {
-      var _y$2, _x$2;
-      return ((_y$2 = y[2]) !== null && _y$2 !== void 0 ? _y$2 : -1) - ((_x$2 = x[2]) !== null && _x$2 !== void 0 ? _x$2 : -1);
+      var _y$3, _x$3;
+      return ((_y$3 = y[2]) !== null && _y$3 !== void 0 ? _y$3 : -1) - ((_x$3 = x[2]) !== null && _x$3 !== void 0 ? _x$3 : -1);
     });
     var m = dm[0] && dm[0][0];
     if (!m) return '';
@@ -5757,8 +5827,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   // still continues.
   function significantBranches(rec) {
     var dm = _toConsumableArray(rec.dm).sort(function (x, y) {
-      var _y$3, _x$3;
-      return ((_y$3 = y[2]) !== null && _y$3 !== void 0 ? _y$3 : -1) - ((_x$3 = x[2]) !== null && _x$3 !== void 0 ? _x$3 : -1);
+      var _y$4, _x$4;
+      return ((_y$4 = y[2]) !== null && _y$4 !== void 0 ? _y$4 : -1) - ((_x$4 = x[2]) !== null && _x$4 !== void 0 ? _x$4 : -1);
     });
     var sig = dm.filter(function (d) {
       return d[2] !== null && d[2] >= treeThreshold;
@@ -5877,15 +5947,18 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return node.branches.map(function (b) {
       var rows = '';
       var cur = b;
+      var parent = node;
       var tail = null;
       for (;;) {
-        rows += "\n          <div class=\"tree-node ".concat(weightClass(cur.via[2]), "\">\n            <span class=\"decay-chip\">").concat(branchText(cur.via), "</span>\n            <span class=\"tree-arrow\">\u2192</span>\n            ").concat(treePill(cur.child), "\n            ").concat(sumBadge(cur.child), "\n          </div>");
+        var q = fmtQ(qValueKeV(cur.via[0], parent.z, parent.a));
+        rows += "\n          <div class=\"tree-node ".concat(weightClass(cur.via[2]), "\">\n            <span class=\"decay-chip\"").concat(q ? " title=\"Q = ".concat(q, "\"") : '', ">").concat(branchText(cur.via), "</span>\n            <span class=\"tree-arrow\">\u2192</span>\n            ").concat(treePill(cur.child), "\n            ").concat(q ? "<span class=\"q-val\">".concat(q, "</span>") : '', "\n            ").concat(sumBadge(cur.child), "\n          </div>");
         var kids = cur.child.branches;
         if (!kids || kids.length === 0) break;
         if (kids.length > 1) {
           tail = cur.child;
           break;
         }
+        parent = cur.child;
         cur = kids[0];
       }
       return "<li class=\"".concat(weightClass(b.via[2]), "\"><div class=\"tree-run\">").concat(rows, "</div>").concat(tail ? "<ul>".concat(treeChildren(tail), "</ul>") : '', "</li>");
@@ -5937,7 +6010,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
           da = a + delta[1];
         target = chainPill(dz, da, findIso(dz, da));
       }
-      return "<div class=\"decay-product\">\n        <span class=\"decay-chip\">".concat(branchText(d), "</span>\n        <span class=\"chain-arrow\">\u2192</span>\n        ").concat(target, "\n      </div>");
+      var q = fmtQ(qValueKeV(d[0], z, a));
+      return "<div class=\"decay-product\">\n        <span class=\"decay-chip\">".concat(branchText(d), "</span>\n        <span class=\"chain-arrow\">\u2192</span>\n        ").concat(target, "\n        ").concat(q ? "<span class=\"q-val\" title=\"".concat(L('qTitle', 'Decay energy of the dominant branch'), "\">Q = ").concat(q, "</span>") : '', "\n      </div>");
     }).join('');
     return "<h4>".concat(L('decayProducts', 'Decay products'), "</h4><div class=\"decay-products\">").concat(rows, "</div>");
   }
@@ -5950,7 +6024,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     nuclideDialog.style.setProperty('--cat', "var(".concat(catVar(el.category), ")"));
     var stable = rec.h === 'stable';
     var chainSection = stable ? '' : decayTreeHTML(z, a);
-    nuclideBody.innerHTML = "\n      <div class=\"detail-head\">\n        <div class=\"detail-tile nuclide-tile\">\n          <span class=\"sym\">".concat(nuclideName(z, a), "</span>\n          <span class=\"num\">").concat(elName(el), "</span>\n        </div>\n        <div>\n          <h2 id=\"nuclide-name\">").concat(L('isotopeOf', 'Isotope of'), " ").concat(elName(el), " (").concat(el.symbol, ")</h2>\n          ").concat(stable ? "<span class=\"stable-badge big-badge\">".concat(L('stable', 'stable'), "</span>") : "<span class=\"cat-chip\">".concat(L('radioactive', 'radioactive'), " \xB7 ").concat(L('thHalfLife', 'Half-life'), ": <b>&nbsp;").concat(halfLifeText(rec), "</b></span>"), "\n        </div>\n      </div>\n      <div class=\"props nuclide-props\">\n        ").concat(prop(L('protons', 'Protons (Z)'), z), "\n        ").concat(prop(L('neutrons', 'Neutrons (N)'), a - z), "\n        ").concat(prop(L('nucleons', 'Nucleons (A)'), a), "\n        ").concat(prop(L('thMass', 'Mass (u)'), (_rec$m2 = rec.m) !== null && _rec$m2 !== void 0 ? _rec$m2 : '—'), "\n        ").concat(prop(L('thHalfLife', 'Half-life'), halfLifeText(rec) + (rec.he ? " <small>(".concat(L('estimated', 'estimated'), ")</small>") : '')), "\n        ").concat(prop(L('thSpin', 'Spin / parity'), (_rec$jp2 = rec.jp) !== null && _rec$jp2 !== void 0 ? _rec$jp2 : '—'), "\n        ").concat(prop(L('thAbundance', 'Natural abundance'), rec.ab !== null ? rec.ab + '%' : '—'), "\n        ").concat(prop(L('thFound', 'Year discovered'), (_rec$y2 = rec.y) !== null && _rec$y2 !== void 0 ? _rec$y2 : '—'), "\n        ").concat(prop(L('isomersLabel', 'Metastable isomers'), rec.isomers || '0'), "\n      </div>\n      ").concat(decayProductsHTML(z, a, rec), "\n      ").concat(chainSection, "\n      <div class=\"nuclide-foot\">\n        <button type=\"button\" class=\"nav-btn\" id=\"open-element\">").concat(L('openElement', 'Open element card'), " \u2014 ").concat(elName(el), "</button>\n      </div>");
+    nuclideBody.innerHTML = "\n      <div class=\"detail-head\">\n        <div class=\"detail-tile nuclide-tile\">\n          <span class=\"sym\">".concat(nuclideName(z, a), "</span>\n          <span class=\"num\">").concat(elName(el), "</span>\n        </div>\n        <div>\n          <h2 id=\"nuclide-name\">").concat(L('isotopeOf', 'Isotope of'), " ").concat(elName(el), " (").concat(el.symbol, ")</h2>\n          ").concat(stable ? "<span class=\"stable-badge big-badge\">".concat(L('stable', 'stable'), "</span>") : "<span class=\"cat-chip\">".concat(L('radioactive', 'radioactive'), " \xB7 ").concat(L('thHalfLife', 'Half-life'), ": <b>&nbsp;").concat(halfLifeText(rec), "</b></span>"), "\n        </div>\n      </div>\n      <div class=\"props nuclide-props\">\n        ").concat(prop(L('protons', 'Protons (Z)'), z), "\n        ").concat(prop(L('neutrons', 'Neutrons (N)'), a - z), "\n        ").concat(prop(L('nucleons', 'Nucleons (A)'), a), "\n        ").concat(prop(L('thMass', 'Mass (u)'), (_rec$m2 = rec.m) !== null && _rec$m2 !== void 0 ? _rec$m2 : '—'), "\n        ").concat(prop(L('thHalfLife', 'Half-life'), halfLifeText(rec) + (rec.he ? " <small>(".concat(L('estimated', 'estimated'), ")</small>") : '')), "\n        ").concat(prop(L('thSpin', 'Spin / parity'), (_rec$jp2 = rec.jp) !== null && _rec$jp2 !== void 0 ? _rec$jp2 : '—'), "\n        ").concat(stable ? '' : prop(L('decayEnergy', 'Decay energy (Q)'), dominantQ(rec, z) || '—'), "\n        ").concat(prop(L('thAbundance', 'Natural abundance'), rec.ab !== null ? rec.ab + '%' : '—'), "\n        ").concat(prop(L('thFound', 'Year discovered'), (_rec$y2 = rec.y) !== null && _rec$y2 !== void 0 ? _rec$y2 : '—'), "\n        ").concat(prop(L('isomersLabel', 'Metastable isomers'), rec.isomers || '0'), "\n      </div>\n      ").concat(decayProductsHTML(z, a, rec), "\n      ").concat(chainSection, "\n      <div class=\"nuclide-foot\">\n        <button type=\"button\" class=\"nav-btn\" id=\"open-element\">").concat(L('openElement', 'Open element card'), " \u2014 ").concat(elName(el), "</button>\n      </div>");
     paintScope(nuclideBody, el.category);
     nuclideBody.querySelector('#open-element').addEventListener('click', function () {
       nuclideDialog.close();

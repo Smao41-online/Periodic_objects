@@ -349,6 +349,14 @@ h1 { font-size: 1.45rem; margin: 0 0 4px; }
 .decay-products { display: flex; flex-direction: column; gap: 6px; }
 .decay-product { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+/* decay energy (Q-value) */
+.q-val {
+  font-size: 0.7rem; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.iso-table .qval { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tree-node .q-val { color: var(--text-muted); }
+
 .chain-pill.clickable { cursor: pointer; }
 .chain-pill.clickable:hover, .chain-pill.clickable:focus-visible {
   border-color: var(--cat, var(--text-muted));

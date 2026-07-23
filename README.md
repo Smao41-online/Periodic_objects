@@ -52,6 +52,11 @@ python3 -m http.server 8000
   ²⁰⁸Pb). Arm weight mirrors branch intensity, stable leaves carry a Σt½ badge
   (sum of half-lives down that path), linear runs stack vertically and the tree
   only nests at real branch points. Every nuclide in the tree is clickable.
+- **Decay energy (Q-value)**: each nuclide shows the energy released by its
+  decay, computed from atomic masses (Q = Δmass × 931494 keV/u) and validated
+  against references (²³⁸U α = 4.270 MeV, ¹⁴C β⁻ = 156.5 keV). It appears as a
+  column in the isotope table, a field in the nuclide pop-up, and beside every
+  branch in the decay tree and decay-products list.
 - **Decay-energy color coding**: nuclide pills are colored by their dominant
   decay mode — α bright gold, β (β⁻/β⁺/ε) blue, γ/IT red, nucleon emission gray,
   stable white — with a legend above every tree, in both themes.

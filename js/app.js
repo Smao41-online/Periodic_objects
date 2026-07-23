@@ -324,6 +324,52 @@
   const isotopesOf = (z) => ISO[z] || [];
   const findIso = (z, a) => isotopesOf(z).find((r) => r.a === a);
 
+  // Decay energy (Q-value) from atomic masses: Q = Δmass × 931494.10242 keV/u.
+  // Uses the atomic masses already in the dataset, so no extra data is needed.
+  const U_KEV = 931494.10242;      // energy equivalent of 1 u, in keV
+  const M_HE4 = 4.002603254;       // ⁴He atomic mass (u)
+  const M_H1 = 1.007825032;        // ¹H atomic mass (u)
+  const M_N = 1.008664916;         // neutron mass (u)
+  const TWO_ME_KEV = 1021.99791;   // 2·mₑc² (u→keV), for β⁺
+
+  function qValueKeV(mode, z, a) {
+    const parent = findIso(z, a);
+    if (!parent || parent.m == null) return null;
+    const d = modeDelta(mode);
+    if (d === null || d === undefined) return null; // fission / unknown — no simple Q
+    const daughter = findIso(z + d[0], a + d[1]);
+    if (!daughter || daughter.m == null) return null;
+    const dm = parent.m - daughter.m;
+    switch (mode) {
+      case 'A': return (dm - M_HE4) * U_KEV;
+      case 'B-': case '2B-': return dm * U_KEV;
+      case 'EC': case 'EC+B+': return dm * U_KEV;
+      case 'B+': case 'e+': return dm * U_KEV - TWO_ME_KEV;
+      case 'p': return (dm - M_H1) * U_KEV;
+      case 'n': return (dm - M_N) * U_KEV;
+      default: {
+        const cl = mode.match(/^(\d+)([A-Z][a-z]?)/); // cluster: subtract the emitted nuclide
+        if (cl) {
+          const emitted = findIso(-d[0], -d[1]);
+          if (emitted && emitted.m != null) return (dm - emitted.m) * U_KEV;
+        }
+        return null; // compound/delayed modes (β⁻n, 2p, …) have no single Q here
+      }
+    }
+  }
+
+  function fmtQ(keV) {
+    if (keV == null || !isFinite(keV)) return null;
+    return Math.abs(keV) >= 1000 ? (keV / 1000).toFixed(3) + ' MeV' : keV.toFixed(1) + ' keV';
+  }
+
+  // Q of a nuclide's dominant decay branch (used for compact per-nuclide display).
+  function dominantQ(rec, z) {
+    if (!rec || rec.h === 'stable' || !rec.dm.length) return null;
+    const main = [...rec.dm].sort((x, y) => (y[2] ?? -1) - (x[2] ?? -1))[0];
+    return main ? fmtQ(qValueKeV(main[0], z, rec.a)) : null;
+  }
+
   function branchText([mode, rel, val]) {
     const label = modeLabel(mode);
     if (val === null) return `${label} ?`;
@@ -402,6 +448,7 @@
       ? `<span class="stable-badge">${L('stable', 'stable')}</span>`
       : rec.dm.map((d) => `<span class="decay-chip">${branchText(d)}</span>`).join('') || '—';
     const isomers = rec.isomers ? `<span class="isomer-badge" title="${rec.isomers} ${L('isomerTitle', 'known metastable isomer(s)')}">+${rec.isomers}m</span>` : '';
+    const q = stable ? '' : (dominantQ(rec, el.number) || '—');
     return `
       <tr class="iso-row${stable ? '' : ' radioactive'}" data-a="${rec.a}" ${stable ? '' : `tabindex="0" title="${L('showChain', 'Show decay chain')}"`}>
         <td class="nuc">${nuclideName(el.number, rec.a)}${isomers}</td>
@@ -409,6 +456,7 @@
         <td>${halfLifeText(rec)}</td>
         <td class="ab">${abBar}</td>
         <td class="decays">${decays}</td>
+        <td class="qval">${q}</td>
         <td>${rec.jp ?? '—'}</td>
         <td class="mass">${rec.m ?? '—'}</td>
         <td>${rec.y ?? '—'}</td>
@@ -438,7 +486,7 @@
           <table class="iso-table">
             <thead><tr>
               <th>${L('thNuclide', 'Nuclide')}</th><th>N</th><th>${L('thHalfLife', 'Half-life')}</th><th>${L('thAbundance', 'Abundance')}</th>
-              <th>${L('thDecay', 'Decay modes')}</th><th>${L('thSpin', 'Spin')}</th><th>${L('thMass', 'Mass (u)')}</th><th>${L('thFound', 'Found')}</th>
+              <th>${L('thDecay', 'Decay modes')}</th><th title="${L('qTitle', 'Decay energy of the dominant branch')}">${L('thQ', 'Q (decay)')}</th><th>${L('thSpin', 'Spin')}</th><th>${L('thMass', 'Mass (u)')}</th><th>${L('thFound', 'Found')}</th>
             </tr></thead>
             <tbody>${list.map((r) => isoRow(el, r)).join('')}</tbody>
           </table>
@@ -452,7 +500,7 @@
     if (next && next.classList.contains('chain-row')) { next.remove(); return; }
     const tr = document.createElement('tr');
     tr.className = 'chain-row';
-    tr.innerHTML = `<td colspan="8">${chainHTML(openNumber, Number(row.dataset.a))}</td>`;
+    tr.innerHTML = `<td colspan="9">${chainHTML(openNumber, Number(row.dataset.a))}</td>`;
     row.after(tr);
     if (COMPAT) {
       const el = byNumber.get(openNumber);
@@ -563,18 +611,22 @@
     return node.branches.map((b) => {
       let rows = '';
       let cur = b;
+      let parent = node;
       let tail = null;
       for (;;) {
+        const q = fmtQ(qValueKeV(cur.via[0], parent.z, parent.a));
         rows += `
           <div class="tree-node ${weightClass(cur.via[2])}">
-            <span class="decay-chip">${branchText(cur.via)}</span>
+            <span class="decay-chip"${q ? ` title="Q = ${q}"` : ''}>${branchText(cur.via)}</span>
             <span class="tree-arrow">→</span>
             ${treePill(cur.child)}
+            ${q ? `<span class="q-val">${q}</span>` : ''}
             ${sumBadge(cur.child)}
           </div>`;
         const kids = cur.child.branches;
         if (!kids || kids.length === 0) break;
         if (kids.length > 1) { tail = cur.child; break; }
+        parent = cur.child;
         cur = kids[0];
       }
       return `<li class="${weightClass(b.via[2])}"><div class="tree-run">${rows}</div>${tail ? `<ul>${treeChildren(tail)}</ul>` : ''}</li>`;
@@ -637,10 +689,12 @@
         const dz = z + delta[0], da = a + delta[1];
         target = chainPill(dz, da, findIso(dz, da));
       }
+      const q = fmtQ(qValueKeV(d[0], z, a));
       return `<div class="decay-product">
         <span class="decay-chip">${branchText(d)}</span>
         <span class="chain-arrow">→</span>
         ${target}
+        ${q ? `<span class="q-val" title="${L('qTitle', 'Decay energy of the dominant branch')}">Q = ${q}</span>` : ''}
       </div>`;
     }).join('');
     return `<h4>${L('decayProducts', 'Decay products')}</h4><div class="decay-products">${rows}</div>`;
@@ -676,6 +730,7 @@
         ${prop(L('thMass', 'Mass (u)'), rec.m ?? '—')}
         ${prop(L('thHalfLife', 'Half-life'), halfLifeText(rec) + (rec.he ? ` <small>(${L('estimated', 'estimated')})</small>` : ''))}
         ${prop(L('thSpin', 'Spin / parity'), rec.jp ?? '—')}
+        ${stable ? '' : prop(L('decayEnergy', 'Decay energy (Q)'), dominantQ(rec, z) || '—')}
         ${prop(L('thAbundance', 'Natural abundance'), rec.ab !== null ? rec.ab + '%' : '—')}
         ${prop(L('thFound', 'Year discovered'), rec.y ?? '—')}
         ${prop(L('isomersLabel', 'Metastable isomers'), rec.isomers || '0')}
