@@ -62,6 +62,7 @@
     const t = curTheme();
     tableEl.querySelectorAll('.el').forEach((node) => {
       const el = byNumber.get(Number(node.dataset.number));
+      if (!el) return; // defensive: never let a lookup miss blank the page
       const c = catHex(el.category);
       node.style.backgroundColor = mix(c, SURFACE[t], TINT[t]);
       node.style.boxShadow = 'inset 0 -3px 0 ' + c;
